@@ -41,8 +41,12 @@ describe("graviss-sofistik package conventions", () => {
     expect(workflow).toContain("ubuntu-latest");
     expect(workflow).toContain("macos-latest");
     expect(workflow).toContain("windows-latest");
-    expect(workflow).toContain("repository: lumine-code/sofistik-reader");
     expect(workflow).toContain("npm pack --dry-run");
+    // npm fetches the pinned library itself, so a sibling checkout is dead
+    // weight. What the pin does need is the rewrite: the lockfile resolves it
+    // over ssh, which a runner has no key for.
+    expect(workflow).not.toContain("repository: lumine-code/sofistik-reader");
+    expect(workflow).toContain('insteadOf "ssh://git@github.com/"');
   });
 
   it("keeps native bindings in the standalone CDB library", () => {

@@ -30,30 +30,19 @@ jobs:
             node: 24
     steps:
       - uses: actions/checkout@v6
-        with:
-          path: graviss-sofistik
-      - uses: actions/checkout@v6
-        with:
-          repository: lumine-code/sofistik-reader
-          path: sofistik-reader
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node }}
           cache: npm
-          cache-dependency-path: graviss-sofistik/package-lock.json
       - name: Use HTTPS for GitHub git dependencies
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - name: Install dependencies
-        working-directory: graviss-sofistik
         run: npm ci --ignore-scripts
       - name: Lint
-        working-directory: graviss-sofistik
         run: npm run lint
       - name: Check formatting
-        working-directory: graviss-sofistik
         run: npm run format:check
       - name: Check package contents
-        working-directory: graviss-sofistik
         run: npm pack --dry-run
 
   integration:
@@ -66,10 +55,6 @@ jobs:
       - uses: actions/checkout@v6
         with:
           path: graviss-sofistik
-      - uses: actions/checkout@v6
-        with:
-          repository: lumine-code/sofistik-reader
-          path: sofistik-reader
       - uses: actions/checkout@v6
         with:
           repository: lumine-code/lumine
