@@ -1,0 +1,63 @@
+{
+  "name": "graviss-sofistik",
+  "author": "lumine-code",
+  "version": "1.0.0",
+  "description": "Read finite element models from SOFiSTiK CDB databases.",
+  "keywords": [
+    "cdb",
+    "structural-analysis",
+    "finite-element",
+    "fem",
+    "engineering"
+  ],
+  "repository": "https://github.com/lumine-code/graviss-sofistik",
+  "bugs": {
+    "url": "https://github.com/lumine-code/graviss-sofistik/issues"
+  },
+  "homepage": "https://github.com/lumine-code/graviss-sofistik#readme",
+  "license": "MIT",
+  "main": "./lib/main",
+  "files": [
+    "lib",
+    "spec"
+  ],
+  "engines": {
+    "lumine": "^1.0.0",
+    "node": ">=24"
+  },
+  "backgroundTips": [
+    "You can explore a SOFiSTiK model by opening a Graviss .grv document beside its .cdb database."
+  ],
+  "scripts": {
+    "test": "lumine --test spec",
+    "lint": "eslint . --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "providedServices": {
+    "graviss.source": {
+      "description": "Reads SOFiSTiK CDB databases into Graviss model sessions.",
+      "versions": {
+        "1.0.0": "provideGravissSource"
+      }
+    }
+  },
+  "consumedServices": {
+    "sofistik.environment": {
+      "versions": {
+        "^1.0.0": "consumeSofistikEnvironment"
+      }
+    }
+  },
+  "dependencies": {
+    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#073f41865deb7998e182a817b3451f96f502811a"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.8.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-n": "^18.2.2",
+    "globals": "^17.9.0",
+    "prettier": "^3.9.6"
+  }
+}
