@@ -263,10 +263,19 @@ describe("readQuads thickness", () => {
     expect(quad([0, 0, 0, 0, 0]).thickness).toBeUndefined();
   });
 
-  it("measures a tapering element's eccentricity from its thickest corner", () => {
-    // The nodes sit on one face of the plate, and that face is half of the
-    // deepest part away from the middle.
-    expect(quad([0.2, 0.2, 0.6, 0.6, 0], 1 | 64).offset).toBeCloseTo(0.3, 6);
+  it("makes a tapering element eccentric by half of each of its corners", () => {
+    // The nodes sit on one face of the plate, so the surface is half a
+    // thickness away from them — and on a plate that tapers, half of a
+    // different thickness at every corner. One distance for all of them would
+    // hold the thin corners off the very nodes they were meshed on.
+    const offset = quad([0.2, 0.2, 0.6, 0.6, 0], 1 | 64).offset;
+    expect(offset.length).toBe(4);
+    expect(offset[0]).toBeCloseTo(0.1, 6);
+    expect(offset[2]).toBeCloseTo(0.3, 6);
+
+    // A plate of one thickness is eccentric by one distance, as it always was.
+    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 64).offset).toBeCloseTo(0.2, 6);
+    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 128).offset).toBeCloseTo(-0.2, 6);
   });
 });
 
