@@ -223,6 +223,53 @@ describe("readQuads eccentricity", () => {
   });
 });
 
+describe("readQuads thickness", () => {
+  const nodesById = new Map([
+    [1, { id: 1, x: 0, y: 0, z: 0 }],
+    [2, { id: 2, x: 1, y: 0, z: 0 }],
+    [3, { id: 3, x: 1, y: 1, z: 0 }],
+    [4, { id: 4, x: 0, y: 1, z: 0 }],
+  ]);
+  const numbers = new Set([1, 2, 3, 4]);
+
+  function quad(thick, nra = 1) {
+    return readQuads(
+      read(1, {
+        nr: Int32Array.from([10]),
+        node: Int32Array.from([1, 2, 3, 4]),
+        mat: Int32Array.from([1]),
+        nra: Int32Array.from([nra]),
+        thick: Float32Array.from(thick),
+        t: Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+      }),
+      numbers,
+      nodesById,
+    )[0];
+  }
+
+  it("says one thickness once and a tapering one at every corner", () => {
+    // A plate of one thickness, stored at every corner or only at the first.
+    expect(quad([0.3, 0.3, 0.3, 0.3, 0]).thickness).toBeCloseTo(0.3, 6);
+    expect(quad([0.3, 0, 0, 0, 0]).thickness).toBeCloseTo(0.3, 6);
+
+    // One that tapers across itself carries every corner, or it would be drawn
+    // as parallel plates of whichever corner happened to be read.
+    const tapered = quad([0.2, 0.2, 0.6, 0.6, 0]).thickness;
+    expect(tapered.length).toBe(4);
+    expect(tapered[0]).toBeCloseTo(0.2, 6);
+    expect(tapered[2]).toBeCloseTo(0.6, 6);
+
+    // No thickness at all is an element with none, not one of nothing.
+    expect(quad([0, 0, 0, 0, 0]).thickness).toBeUndefined();
+  });
+
+  it("measures a tapering element's eccentricity from its thickest corner", () => {
+    // The nodes sit on one face of the plate, and that face is half of the
+    // deepest part away from the middle.
+    expect(quad([0.2, 0.2, 0.6, 0.6, 0], 1 | 64).offset).toBeCloseTo(0.3, 6);
+  });
+});
+
 describe("readSprings", () => {
   const numbers = new Set([1, 2]);
 
