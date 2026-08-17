@@ -189,10 +189,11 @@ describe("readQuads eccentricity", () => {
     // A plain quad is meshed through its own middle and is not offset at all.
     expect(quad(1).offset).toBeUndefined();
 
-    // Eccentric to one side or the other puts the element's surface half a
-    // thickness away from the nodes, on that side.
-    expect(quad(1 | 64).offset).toBeCloseTo(0.2, 6);
-    expect(quad(1 | 128).offset).toBeCloseTo(-0.2, 6);
+    // Eccentric one way or the other puts the element's surface half a
+    // thickness away from the nodes — "upside" being the physical above, which
+    // in a gravity-down frame is against local z.
+    expect(quad(1 | 64).offset).toBeCloseTo(-0.2, 6);
+    expect(quad(1 | 128).offset).toBeCloseTo(0.2, 6);
 
     // Claiming both is claiming neither: there is no side to pick.
     expect(quad(1 | 64 | 128).offset).toBeUndefined();
@@ -202,8 +203,8 @@ describe("readQuads eccentricity", () => {
     // SOFiSTiK measures it along the element's stored local z and Graviss along
     // the right-handed normal of the node order. Where those oppose, passing
     // the distance through unchanged would offset the element the wrong way.
-    expect(quad(1 | 64, opposedAxes).offset).toBeCloseTo(-0.2, 6);
-    expect(quad(1 | 128, opposedAxes).offset).toBeCloseTo(0.2, 6);
+    expect(quad(1 | 64, opposedAxes).offset).toBeCloseTo(0.2, 6);
+    expect(quad(1 | 128, opposedAxes).offset).toBeCloseTo(-0.2, 6);
   });
 
   it("has nothing to offset without a thickness", () => {
@@ -270,12 +271,12 @@ describe("readQuads thickness", () => {
     // hold the thin corners off the very nodes they were meshed on.
     const offset = quad([0.2, 0.2, 0.6, 0.6, 0], 1 | 64).offset;
     expect(offset.length).toBe(4);
-    expect(offset[0]).toBeCloseTo(0.1, 6);
-    expect(offset[2]).toBeCloseTo(0.3, 6);
+    expect(offset[0]).toBeCloseTo(-0.1, 6);
+    expect(offset[2]).toBeCloseTo(-0.3, 6);
 
     // A plate of one thickness is eccentric by one distance, as it always was.
-    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 64).offset).toBeCloseTo(0.2, 6);
-    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 128).offset).toBeCloseTo(-0.2, 6);
+    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 64).offset).toBeCloseTo(-0.2, 6);
+    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 128).offset).toBeCloseTo(0.2, 6);
   });
 });
 
