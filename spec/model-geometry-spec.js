@@ -248,17 +248,27 @@ describe("readQuads thickness", () => {
     )[0];
   }
 
-  it("says one thickness once and a tapering one at every corner", () => {
-    // A plate of one thickness, stored at every corner or only at the first.
-    expect(quad([0.3, 0.3, 0.3, 0.3, 0]).thickness).toBeCloseTo(0.3, 6);
+  it("reads the middle thickness and the four node thicknesses behind it", () => {
+    // THICK stores the middle value first and the node values after it. A
+    // plate of one thickness stores it once, in the middle.
     expect(quad([0.3, 0, 0, 0, 0]).thickness).toBeCloseTo(0.3, 6);
+    // Node values all saying the same thing are that one thickness.
+    expect(quad([0.3, 0.3, 0.3, 0.3, 0.3]).thickness).toBeCloseTo(0.3, 6);
 
-    // One that tapers across itself carries every corner, or it would be drawn
-    // as parallel plates of whichever corner happened to be read.
-    const tapered = quad([0.2, 0.2, 0.6, 0.6, 0]).thickness;
+    // Unequal node values are an element that tapers, and every corner is
+    // carried — reading the middle as a corner shifted the whole run by one
+    // and turned a continuous taper into steps.
+    const tapered = quad([0.4, 0.2, 0.2, 0.6, 0.6]).thickness;
     expect(tapered.length).toBe(4);
     expect(tapered[0]).toBeCloseTo(0.2, 6);
     expect(tapered[2]).toBeCloseTo(0.6, 6);
+
+    // With the orthotropic bit set the four are stiffnesses, not thicknesses.
+    expect(quad([0.3, 9, 9, 9, 9], 1 | 256).thickness).toBeCloseTo(0.3, 6);
+
+    // A negative node slot names a plate-stiffness section rather than
+    // measuring anything, so only the middle is a thickness.
+    expect(quad([0.3, -12, 0.2, 0.2, 0.2]).thickness).toBeCloseTo(0.3, 6);
 
     // No thickness at all is an element with none, not one of nothing.
     expect(quad([0, 0, 0, 0, 0]).thickness).toBeUndefined();
@@ -267,16 +277,15 @@ describe("readQuads thickness", () => {
   it("makes a tapering element eccentric by half of each of its corners", () => {
     // The nodes sit on one face of the plate, so the surface is half a
     // thickness away from them — and on a plate that tapers, half of a
-    // different thickness at every corner. One distance for all of them would
-    // hold the thin corners off the very nodes they were meshed on.
-    const offset = quad([0.2, 0.2, 0.6, 0.6, 0], 1 | 64).offset;
+    // different thickness at every corner.
+    const offset = quad([0.4, 0.2, 0.2, 0.6, 0.6], 1 | 64).offset;
     expect(offset.length).toBe(4);
     expect(offset[0]).toBeCloseTo(-0.1, 6);
     expect(offset[2]).toBeCloseTo(-0.3, 6);
 
     // A plate of one thickness is eccentric by one distance, as it always was.
-    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 64).offset).toBeCloseTo(-0.2, 6);
-    expect(quad([0.4, 0.4, 0.4, 0.4, 0], 1 | 128).offset).toBeCloseTo(0.2, 6);
+    expect(quad([0.4, 0, 0, 0, 0], 1 | 64).offset).toBeCloseTo(-0.2, 6);
+    expect(quad([0.4, 0, 0, 0, 0], 1 | 128).offset).toBeCloseTo(0.2, 6);
   });
 });
 
