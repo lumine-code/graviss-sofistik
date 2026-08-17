@@ -102,38 +102,93 @@ describe("section shapes", () => {
     expect(roundShape(read(0, {}))).toBeNull();
   });
 
-  it("takes the largest closed contour as the section outline", () => {
-    // The properties int carries the contour number above its flag byte, and
-    // only a boundary point describes the outline.
-    const point = (contour, flag) => (contour << 8) | flag;
+  it("keeps every polygon of a composed section, and every point of each", () => {
+    // IDP carries the polygon number above a flag byte. The flags are
+    // bookkeeping — effectiveness, fillets, generation, the closing vertex —
+    // and none of them moves a point. Section 11 of the field model is the
+    // shape of the bug this pins: a plate whose points carry effectiveness
+    // bits, a deck of another material, and the web between them. Dropping
+    // flagged points lost the plate; keeping one polygon lost the rest.
+    const point = (polygon, flag) => (polygon << 8) | flag;
     const shape = polygonShape(
-      read(9, {
+      read(17, {
+        idp: Int32Array.from([
+          point(1, 28),
+          point(1, 28),
+          point(1, 28),
+          point(1, 92),
+          point(1, 92),
+          point(1, 28),
+          point(1, 156),
+          point(3, 0),
+          point(3, 0),
+          point(3, 0),
+          point(3, 0),
+          point(3, 128),
+          point(4, 0),
+          point(4, 0),
+          point(4, 0),
+          point(4, 0),
+          point(4, 128),
+        ]),
+        y: Float32Array.from([
+          -1, 1, 1, 0.13, -0.13, -1, -1, -1, 1, 1, -1, -1, -0.13, 0.13, 0.16, -0.16, -0.13,
+        ]),
+        z: Float32Array.from([
+          -0.12, -0.12, 0, 0, 0, 0, -0.12, -0.293, -0.293, -0.12, -0.12, -0.293, 0, 0, 0.72, 0.72,
+          0,
+        ]),
+      }),
+    );
+    expect(shape.kind).toBe("polygon");
+    expect(shape.parts.length).toBe(3);
+    expect(shape.parts.map((part) => part.points.length)).toEqual([6, 4, 4]);
+    // The closing vertex repeats the first and is dropped; the flagged points
+    // in the middle of the plate are kept, corners like any other. Stored as
+    // float32, so compared as float32.
+    expect(shape.parts[0].points[3][0]).toBeCloseTo(0.13, 6);
+    expect(shape.parts[0].points[3][1]).toBe(0);
+  });
+
+  it("reads an inner boundary as a hole of the area it lies inside", () => {
+    const point = (polygon, flag) => (polygon << 8) | flag;
+    const shape = polygonShape(
+      read(8, {
         idp: Int32Array.from([
           point(1, 0),
           point(1, 0),
           point(1, 0),
           point(1, 0),
-          point(2, 0),
-          point(2, 0),
-          point(2, 0),
-          point(1, 7),
-          point(1, 0),
+          point(2, 1),
+          point(2, 1),
+          point(2, 1),
+          point(2, 129),
         ]),
-        y: Float32Array.from([0, 1, 1, 0, 5, 6, 5, 9, 0]),
-        z: Float32Array.from([0, 0, 2, 2, 0, 0, 1, 9, 0]),
+        y: Float32Array.from([0, 4, 4, 0, 1, 2, 1, 1]),
+        z: Float32Array.from([0, 0, 4, 4, 1, 1, 2, 1]),
       }),
     );
-    // The first contour has four corners and closes back on its first point,
-    // which is dropped; the point flagged 7 is not on the boundary.
-    expect(shape).toEqual({
-      kind: "polygon",
-      points: [
-        [0, 0],
-        [1, 0],
-        [1, 2],
-        [0, 2],
-      ],
-    });
+    expect(shape.points.length).toBe(4);
+    expect(shape.holes.length).toBe(1);
+    expect(shape.holes[0].length).toBe(3);
+    expect("parts" in shape).toBe(false);
+  });
+
+  it("lets a generated polygon stand in only when nothing was drawn", () => {
+    const point = (polygon, flag) => (polygon << 8) | flag;
+    const columns = (polygons) =>
+      read(polygons.length * 3, {
+        idp: Int32Array.from(
+          polygons.flatMap((number) => [point(number, 0), point(number, 0), point(number, 0)]),
+        ),
+        y: Float32Array.from(polygons.flatMap((number) => [number, number + 1, number])),
+        z: Float32Array.from(polygons.flatMap(() => [0, 0, 1])),
+      });
+    // Polygons numbered from 100 repeat the drawn ones and are left out.
+    expect(polygonShape(columns([1, 100])).points.length).toBe(3);
+    expect("parts" in polygonShape(columns([1, 100]))).toBe(false);
+    // With nothing drawn they are all there is, and better than nothing.
+    expect(polygonShape(columns([100])).points.length).toBe(3);
   });
 
   it("falls back to the rectangle the section's own stiffness implies", () => {
