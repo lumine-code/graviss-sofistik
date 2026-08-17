@@ -106,13 +106,14 @@ describe("SofistikSession", () => {
         },
       ],
     });
-    // Geometry is four reads, the section keys, and one read per section.
+    // Geometry is five reads, the section keys, and one read per section.
     // Nothing else is asked of the database.
     expect(calls).toEqual([
       "system",
       "nodes",
       "beams",
       "quads",
+      "springs",
       ["keys", "section"],
       ["section", 101],
     ]);

@@ -3,6 +3,7 @@ const {
   readNodes,
   readQuads,
   readSection,
+  readSprings,
   restraintsOf,
   roundShape,
 } = require("../lib/model-geometry");
@@ -50,6 +51,7 @@ describe("readQuads", () => {
         // model does not have.
         node: Int32Array.from([1, 2, 3, 4, 1, 2, 3, 3, 1, 2, 99, 99]),
         mat: Int32Array.from([1, 1, 1]),
+        nra: Int32Array.from([1, 1, 1]),
         thick: Float32Array.from([0.2, 0, 0, 0, 0, -0.3, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
         t: Float32Array.from(Array.from({ length: 27 }, (unused, index) => index % 9)),
       }),
@@ -149,5 +151,111 @@ describe("section shapes", () => {
     expect(section.shape.inferred).toBe(true);
     expect(section.shape.height).toBeCloseTo(0.3, 5);
     expect(section.shape.width).toBeCloseTo(0.2, 5);
+  });
+});
+
+describe("readQuads eccentricity", () => {
+  // Four corners of a square in the XY plane, wound so the right-handed normal
+  // of the node order is +Z.
+  const nodesById = new Map([
+    [1, { id: 1, x: 0, y: 0, z: 0 }],
+    [2, { id: 2, x: 1, y: 0, z: 0 }],
+    [3, { id: 3, x: 1, y: 1, z: 0 }],
+    [4, { id: 4, x: 0, y: 1, z: 0 }],
+  ]);
+  const numbers = new Set([1, 2, 3, 4]);
+  // Local z is +Z, so it agrees with the node order.
+  const alignedAxes = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  // Local z is -Z, so it does not.
+  const opposedAxes = [1, 0, 0, 0, -1, 0, 0, 0, -1];
+
+  function quad(nra, axes = alignedAxes) {
+    return readQuads(
+      read(1, {
+        nr: Int32Array.from([10]),
+        node: Int32Array.from([1, 2, 3, 4]),
+        mat: Int32Array.from([1]),
+        nra: Int32Array.from([nra]),
+        thick: Float32Array.from([0.4, 0, 0, 0, 0]),
+        t: Float32Array.from(axes),
+      }),
+      numbers,
+      nodesById,
+    )[0];
+  }
+
+  it("reads an eccentricity flag as half a thickness off the node plane", () => {
+    // A plain quad is meshed through its own middle and is not offset at all.
+    expect(quad(1).offset).toBeUndefined();
+
+    // Eccentric to one side or the other puts the element's surface half a
+    // thickness away from the nodes, on that side.
+    expect(quad(1 | 64).offset).toBeCloseTo(0.2, 6);
+    expect(quad(1 | 128).offset).toBeCloseTo(-0.2, 6);
+
+    // Claiming both is claiming neither: there is no side to pick.
+    expect(quad(1 | 64 | 128).offset).toBeUndefined();
+  });
+
+  it("measures the eccentricity the way the viewer will", () => {
+    // SOFiSTiK measures it along the element's stored local z and Graviss along
+    // the right-handed normal of the node order. Where those oppose, passing
+    // the distance through unchanged would offset the element the wrong way.
+    expect(quad(1 | 64, opposedAxes).offset).toBeCloseTo(-0.2, 6);
+    expect(quad(1 | 128, opposedAxes).offset).toBeCloseTo(0.2, 6);
+  });
+
+  it("has nothing to offset without a thickness", () => {
+    const thin = readQuads(
+      read(1, {
+        nr: Int32Array.from([10]),
+        node: Int32Array.from([1, 2, 3, 4]),
+        mat: Int32Array.from([1]),
+        nra: Int32Array.from([1 | 64]),
+        thick: Float32Array.from([0, 0, 0, 0, 0]),
+        t: Float32Array.from(alignedAxes),
+      }),
+      numbers,
+      nodesById,
+    )[0];
+    expect(thin.offset).toBeUndefined();
+  });
+});
+
+describe("readSprings", () => {
+  const numbers = new Set([1, 2]);
+
+  it("reads a spring between two nodes and one held against the ground", () => {
+    const elements = readSprings(
+      read(4, {
+        nr: Int32Array.from([1, 2, 3, 0]),
+        // The second node is zero for a grounded spring, and the fourth record
+        // is not a spring at all.
+        node: Int32Array.from([1, 2, 1, 0, 1, 0, 0, 0]),
+        t: Float32Array.from([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]),
+      }),
+      numbers,
+    );
+
+    expect(elements.map(({ id, kind, nodeIds }) => ({ id, kind, nodeIds }))).toEqual([
+      { id: "spring-1", kind: "spring", nodeIds: [1, 2] },
+      { id: "spring-2", kind: "spring", nodeIds: [1] },
+    ]);
+    // A spring that spans two nodes needs no direction; one that does not is
+    // drawn along the one it works in.
+    expect(elements[0].direction).toBeUndefined();
+    expect(elements[1].direction).toEqual([0, 0, 1]);
+  });
+
+  it("drops a grounded spring with no direction to draw it along", () => {
+    const elements = readSprings(
+      read(1, {
+        nr: Int32Array.from([1]),
+        node: Int32Array.from([1, 0]),
+        t: Float32Array.from([0, 0, 0]),
+      }),
+      numbers,
+    );
+    expect(elements).toEqual([]);
   });
 });
