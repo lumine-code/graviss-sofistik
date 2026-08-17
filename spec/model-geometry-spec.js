@@ -1,4 +1,5 @@
 const {
+  buildGeometry,
   polygonShape,
   readNodes,
   readCouplings,
@@ -407,6 +408,37 @@ describe("readSprings", () => {
       numbers,
     );
     expect(elements).toEqual([]);
+  });
+});
+
+describe("buildGeometry", () => {
+  it("builds the model without couplings when the reader knows none", async () => {
+    // The couplings record was named in the reader long after the others, so a
+    // reader pinned from before that refuses the read. The model is still the
+    // model without its couplings.
+    const empty = { count: 0, columns: {} };
+    const database = {
+      async read(name) {
+        if (name === "couplings") throw new Error('Unknown SOFiSTiK record "couplings".');
+        if (name === "nodes") {
+          return {
+            count: 1,
+            columns: {
+              nr: Int32Array.of(1),
+              xyz: Float32Array.of(0, 0, 0),
+              kfix: Int32Array.of(0),
+            },
+          };
+        }
+        return empty;
+      },
+      async keys() {
+        return [];
+      },
+    };
+    const geometry = await buildGeometry(database);
+    expect(geometry.nodes.length).toBe(1);
+    expect(geometry.elements).toEqual([]);
   });
 });
 
