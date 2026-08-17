@@ -50,7 +50,7 @@
     }
   },
   "dependencies": {
-    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#9f293ac02e51e409c63b6722cb9a646edee7d4f0"
+    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#9969f02e68ded90b3b9c5fad2ebdeb859612ce80"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

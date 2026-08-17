@@ -1,6 +1,7 @@
 const {
   polygonShape,
   readNodes,
+  readCouplings,
   readQuads,
   readSection,
   readSprings,
@@ -257,5 +258,51 @@ describe("readSprings", () => {
       numbers,
     );
     expect(elements).toEqual([]);
+  });
+});
+
+describe("readCouplings", () => {
+  const numbers = new Set([1, 2, 3]);
+
+  it("reads a constrained node and the node it is held to", () => {
+    const elements = readCouplings(
+      read(5, {
+        // KTL packs the kind with the depth and the group; every kind that
+        // names a partner is a coupling to draw.
+        ktl: Int32Array.from([1, 2, 3, 31, 8]),
+        nr: Int32Array.from([1, 1, 2, 3, 1]),
+        // A constraint tying a node to a symmetry plane names no partner, and
+        // one naming a node the model does not have names nothing either.
+        kr: Int32Array.from([2, 0, 2, 3, 0, 0, 0, 0, 99, 0]),
+      }),
+      numbers,
+    );
+
+    expect(elements.map(({ id, kind, nodeIds }) => ({ id, kind, nodeIds }))).toEqual([
+      { id: "coupling-1-2", kind: "coupling", nodeIds: [1, 2] },
+    ]);
+  });
+
+  it("draws one link between a pair however many degrees of freedom tie it", () => {
+    // Six constrained degrees of freedom is six records and one coupling.
+    const elements = readCouplings(
+      read(6, {
+        ktl: Int32Array.from([1, 2, 3, 4, 5, 6]),
+        nr: Int32Array.from([1, 1, 1, 1, 1, 1]),
+        kr: Int32Array.from([2, 0, 2, 0, 2, 0, 2, 0, 2, 0, 2, 0]),
+      }),
+      numbers,
+    );
+    expect(elements.length).toBe(1);
+    // And the pair reads the same whichever end was constrained.
+    const mirrored = readCouplings(
+      read(2, {
+        ktl: Int32Array.from([1, 1]),
+        nr: Int32Array.from([1, 2]),
+        kr: Int32Array.from([2, 0, 1, 0]),
+      }),
+      numbers,
+    );
+    expect(mirrored.map(({ id }) => id)).toEqual(["coupling-1-2"]);
   });
 });
