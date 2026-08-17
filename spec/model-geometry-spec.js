@@ -234,6 +234,9 @@ describe("readSprings", () => {
         // is not a spring at all.
         node: Int32Array.from([1, 2, 1, 0, 1, 0, 0, 0]),
         t: Float32Array.from([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]),
+        cp: Float32Array.from([1000, 0, 0, 0]),
+        cq: Float32Array.from([0, 0, 0, 0]),
+        cm: Float32Array.from([0, 0, 500, 0]),
       }),
       numbers,
     );
@@ -246,6 +249,28 @@ describe("readSprings", () => {
     // drawn along the one it works in.
     expect(elements[0].direction).toBeUndefined();
     expect(elements[1].direction).toEqual([0, 0, 1]);
+    // A spring holding a translation is drawn as the coil it is; the kind is
+    // only read the other way for one that holds nothing but a rotation.
+    expect(elements[0].rotational).toBeUndefined();
+    expect(elements[1].rotational).toBeUndefined();
+  });
+
+  it("reads a spring that resists only rotation as one that turns", () => {
+    const elements = readSprings(
+      read(2, {
+        nr: Int32Array.from([1, 2]),
+        node: Int32Array.from([1, 2, 1, 2]),
+        t: Float32Array.from([0, 0, 1, 0, 0, 1]),
+        // The first holds a rotation and nothing else; the second holds both,
+        // and a coil is the truer picture of that.
+        cp: Float32Array.from([0, 1000]),
+        cq: Float32Array.from([0, 0]),
+        cm: Float32Array.from([500, 500]),
+      }),
+      numbers,
+    );
+    expect(elements[0].rotational).toBe(true);
+    expect(elements[1].rotational).toBeUndefined();
   });
 
   it("drops a grounded spring with no direction to draw it along", () => {
@@ -254,6 +279,9 @@ describe("readSprings", () => {
         nr: Int32Array.from([1]),
         node: Int32Array.from([1, 0]),
         t: Float32Array.from([0, 0, 0]),
+        cp: Float32Array.from([1000]),
+        cq: Float32Array.from([0]),
+        cm: Float32Array.from([0]),
       }),
       numbers,
     );
