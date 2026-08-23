@@ -171,16 +171,44 @@ describe("graviss-sofistik package", () => {
       expect(geometry.sections.every(({ shape }) => shape.kind === "plates")).toBe(true);
 
       // A welded plate girder: a 10 mm web trimmed to the inner face of each
-      // 260 x 17 flange, both flanges split at the web. The plates tile the
+      // 260 x 17 flange, both flanges split at the web, and the web split
+      // again where the non-effective boundary crosses it. The plates tile the
       // section, so their areas add up to the area the database stores.
       const girder = geometry.sections.find(({ id }) => id === 71);
-      expect(girder.shape.plates.length).toBe(5);
-      const material = girder.shape.plates.reduce(
-        (total, { from, to, thickness }) =>
-          total + Math.hypot(to[0] - from[0], to[1] - from[1]) * thickness,
+      expect(girder.shape.plates.length).toBe(6);
+      const spans = (plates) =>
+        plates.reduce(
+          (total, { from, to, thickness }) =>
+            total + Math.hypot(to[0] - from[0], to[1] - from[1]) * thickness,
+          0,
+        );
+      expect(spans(girder.shape.plates)).toBeCloseTo(girder.area, 5);
+
+      // Half this girder does not carry: the lower flange and the web below
+      // z = -0.2602, marked non-effective for bending about the section's own
+      // y. The shape is still the whole of it and the areas name the part that
+      // is drawn but not counted.
+      expect(girder.ineffective.length).toBe(3);
+      const ineffective = girder.ineffective.reduce(
+        (total, { points }) =>
+          total +
+          Math.abs(
+            points.reduce((twice, point, index) => {
+              const next = points[(index + 1) % points.length];
+              return twice + point[0] * next[1] - next[0] * point[1];
+            }, 0),
+          ) /
+            2,
         0,
       );
-      expect(material).toBeCloseTo(girder.area, 5);
+      expect(ineffective).toBeCloseTo(0.012, 5);
+      // Every one of them lies below the boundary, in the half of the section
+      // the rule names.
+      expect(girder.ineffective.every(({ points }) => points.every(([, z]) => z >= -0.2602))).toBe(
+        true,
+      );
+      // And a section nothing was taken out of says nothing at all.
+      expect(geometry.sections.filter(({ ineffective: areas }) => areas).length).toBe(1);
     } finally {
       await session.dispose();
     }

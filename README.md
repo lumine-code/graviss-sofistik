@@ -9,6 +9,7 @@ Read finite element models from SOFiSTiK CDB databases.
 - **Database geometry**: reads nodes, beams, trusses, cables, shells, springs and the way they act, couplings, restraints, exact section contours, per-corner thicknesses, and element-local axes from `.cdb` databases.
 - **Thin-walled sections**: reads the plates a welded or rolled section is built from, so a plate girder is drawn as the girder it is rather than as the rectangle of equivalent stiffness.
 - **Axial member orientation**: gives a truss or a cable the local frame a beam of the same axis would have stored, since the record stores none, so an asymmetric section stands the way up the model means it to.
+- **Non-effective areas**: reads the plates and polygons a NEFF rule marked, so the part of a section that is there and does not carry is drawn as such.
 - **Eccentric shells**: reads a quad's eccentricity flags as the offset the element is drawn at, measured the way the viewer measures it.
 - **Coordinate-system fidelity**: reads the CDB gravity axis so Graviss can orient navigation and reference graphics without changing model coordinates, and falls back to the convention the system type names where a database declares no gravity at all.
 - **Source discovery**: resolves an explicit relative source or a same-basename `.cdb` database beside a `.grv` document.

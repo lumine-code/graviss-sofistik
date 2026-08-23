@@ -1,6 +1,7 @@
 const {
   buildGeometry,
   defaultLocalAxes,
+  ineffectiveAreas,
   gravityVector,
   platesShape,
   polygonShape,
@@ -257,6 +258,81 @@ describe("section shapes", () => {
     // generated polygon does.
     expect(platesShape(columns([7, 64])).plates.length).toBe(1);
     expect(platesShape(columns([64, 64])).plates.length).toBe(2);
+  });
+
+  it("reads the part of a section that does not carry as the area it stands in", () => {
+    // AQUA splits a plate the non-effective boundary crosses and marks the
+    // piece, so the mark is already cut to the section: the second plate here
+    // is the lower half of a web, and the third is a flange.
+    const panels = read(3, {
+      idp: Int32Array.from([512, 1280, 1024]),
+      ya: Float32Array.from([0, 0, -0.13]),
+      za: Float32Array.from([-0.498, -0.2602, 0.5065]),
+      ye: Float32Array.from([0, 0, 0.13]),
+      ze: Float32Array.from([-0.2602, 0.498, 0.5065]),
+      t: Float32Array.from([0.01, 0.01, 0.017]),
+    });
+    const shape = platesShape(panels);
+    // The shape is still the whole section; the marks take nothing out of it.
+    expect(shape.plates.length).toBe(3);
+    expect("nonEffective" in shape.plates[1]).toBe(false);
+
+    const areas = ineffectiveAreas(shape, { panels });
+    expect(areas.length).toBe(2);
+    // A plate's area is the band it occupies, which is what the shape has the
+    // viewer draw from its line and its thickness.
+    expect(areas[0].points.map((point) => point.map((value) => Number(value.toFixed(4))))).toEqual([
+      [-0.005, -0.2602],
+      [-0.005, 0.498],
+      [0.005, 0.498],
+      [0.005, -0.2602],
+    ]);
+    expect(areas[1].points.length).toBe(4);
+
+    // A section nothing was taken out of says nothing.
+    expect(
+      ineffectiveAreas(shape, {
+        panels: read(1, {
+          idp: Int32Array.of(1),
+          ya: Float32Array.of(0),
+          za: Float32Array.of(-0.5),
+          ye: Float32Array.of(0),
+          ze: Float32Array.of(0.5),
+          t: Float32Array.of(0.01),
+        }),
+      }),
+    ).toBeNull();
+    // Nor does a shape whose records carry no marks at all.
+    expect(ineffectiveAreas({ kind: "rectangle" }, { panels })).toBeNull();
+    expect(ineffectiveAreas(null, {})).toBeNull();
+  });
+
+  it("reads a polygon marked non-effective as the area it encloses", () => {
+    // A composite deck whose slab is left out: every point of that polygon
+    // carries the bits, and the polygons of the girder below it carry none.
+    const point = (polygon, flag) => (polygon << 8) | flag;
+    const polygon = read(9, {
+      idp: Int32Array.from([
+        point(1, 28),
+        point(1, 28),
+        point(1, 28),
+        point(1, 156),
+        point(3, 0),
+        point(3, 0),
+        point(3, 0),
+        point(3, 0),
+        point(3, 128),
+      ]),
+      y: Float32Array.from([-1, 1, 1, -1, -1, 1, 1, -1, -1]),
+      z: Float32Array.from([-0.12, -0.12, 0, -0.12, -0.293, -0.293, -0.12, -0.12, -0.293]),
+    });
+    const shape = polygonShape(polygon);
+    expect(shape.parts.length).toBe(2);
+
+    const areas = ineffectiveAreas(shape, { polygon });
+    expect(areas.length).toBe(1);
+    expect(areas[0].points.length).toBe(3);
+    expect(areas[0].points[0][1]).toBeCloseTo(-0.12, 6);
   });
 
   it("falls back to the rectangle the section's own stiffness implies", () => {
