@@ -1,11 +1,11 @@
 const path = require("node:path");
-const { coordinateSystemMetadata } = require("../lib/coordinate-system");
+const { coordinateSystemMetadata, problemTypeOf } = require("../lib/coordinate-system");
 const { SofistikSession } = require("../lib/sofistik-session");
 const { SofistikSourceProvider } = require("../lib/source-provider");
 
 describe("SofistikSession", () => {
   it("maps every CDB gravity direction to the opposite model up axis", () => {
-    expect([-1, 1, -2, 2, -3, 3].map(coordinateSystemMetadata)).toEqual([
+    expect([-1, 1, -2, 2, -3, 3].map((axis) => coordinateSystemMetadata(axis))).toEqual([
       { upAxis: "x", handedness: "right", gravityAxis: "-x" },
       { upAxis: "-x", handedness: "right", gravityAxis: "+x" },
       { upAxis: "y", handedness: "right", gravityAxis: "-y" },
@@ -13,6 +13,32 @@ describe("SofistikSession", () => {
       { upAxis: "z", handedness: "right", gravityAxis: "-z" },
       { upAxis: "-z", handedness: "right", gravityAxis: "+z" },
     ]);
+  });
+
+  it("falls back to the convention the system type names when gravity is undefined", () => {
+    // Zero is a legal IACHS and means the database says nothing. SOFiSTiK's own
+    // convention is z downwards, so that is the answer for every system but the
+    // ones written in the international x-y coordinate system.
+    expect(coordinateSystemMetadata(0, 0)).toEqual({
+      upAxis: "-z",
+      handedness: "right",
+      gravityAxis: "undefined",
+    });
+    expect(coordinateSystemMetadata(0, 10).upAxis).toBe("-z");
+    expect(coordinateSystemMetadata(0, 30).upAxis).toBe("-z");
+    // A WCS plane frame puts y up; its slab twin keeps z, because a slab lies
+    // in the x-y plane and is drawn seen from above.
+    expect(coordinateSystemMetadata(0, 14).upAxis).toBe("y");
+    expect(coordinateSystemMetadata(0, 17).upAxis).toBe("y");
+    expect(coordinateSystemMetadata(0, 34).upAxis).toBe("z");
+    // A database SOFiSTiK found something wrong with negates its problem type
+    // with a reason multiplied in, and it is still the system it says it is.
+    expect(coordinateSystemMetadata(0, -(14 + 1000 * 3)).upAxis).toBe("y");
+    expect(problemTypeOf(-(30 + 1000 * 7))).toBe(30);
+    expect(problemTypeOf(undefined)).toBeNull();
+    // A stated gravity axis settles it and the system type is never consulted.
+    expect(coordinateSystemMetadata(3, 14).upAxis).toBe("-z");
+    expect(coordinateSystemMetadata(-3, 10).upAxis).toBe("z");
   });
 
   it("requires describe first and delegates only advertised queries", async () => {
