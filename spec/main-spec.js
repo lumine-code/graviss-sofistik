@@ -3,6 +3,48 @@ const path = require("node:path");
 const { SofistikEnvironment } = require("../lib/environment");
 const { SofistikSession } = require("../lib/sofistik-session");
 
+// The development databases are read through the installed interface, so both
+// have to be there. A machine without either states why it skipped rather than
+// failing on something it was never given.
+const ENVIRONMENT_ROOT = "C:\\Program Files\\SOFiSTiK";
+const DLL_PATH = path.join(
+  ENVIRONMENT_ROOT,
+  "2026",
+  "SOFiSTiK 2026",
+  "interfaces",
+  "64bit",
+  "sof_cdb_w_edu-2026.dll",
+);
+
+function developmentEnvironment() {
+  return new SofistikEnvironment({
+    environmentProvider: {
+      resolve: () => ({
+        version: "2026",
+        edition: "educational",
+        root: ENVIRONMENT_ROOT,
+        installPath: path.join(ENVIRONMENT_ROOT, "2026", "SOFiSTiK 2026"),
+        installed: true,
+      }),
+    },
+  });
+}
+
+// A database is opened only where both the interface and the sample are
+// present; anywhere else the spec says which one was missing and stops.
+function developmentSession(name) {
+  if (process.platform !== "win32" || !fs.existsSync(DLL_PATH)) {
+    pending("SOFiSTiK 2026 Educational is not installed");
+    return null;
+  }
+  const databasePath = path.resolve(__dirname, "..", ".dev", name);
+  if (!fs.existsSync(databasePath)) {
+    pending("The development CDB sample is not present");
+    return null;
+  }
+  return new SofistikSession(databasePath, { environment: developmentEnvironment() });
+}
+
 describe("graviss-sofistik package", () => {
   let main;
 
@@ -57,36 +99,8 @@ describe("graviss-sofistik package", () => {
   });
 
   it("reads the development CDB through the installed 2026 interface", async () => {
-    const environmentRoot = "C:\\Program Files\\SOFiSTiK";
-    const dllPath = path.join(
-      environmentRoot,
-      "2026",
-      "SOFiSTiK 2026",
-      "interfaces",
-      "64bit",
-      "sof_cdb_w_edu-2026.dll",
-    );
-    if (process.platform !== "win32" || !fs.existsSync(dllPath)) {
-      pending("SOFiSTiK 2026 Educational is not installed");
-      return;
-    }
-    const environment = new SofistikEnvironment({
-      environmentProvider: {
-        resolve: () => ({
-          version: "2026",
-          edition: "educational",
-          root: environmentRoot,
-          installPath: path.join(environmentRoot, "2026", "SOFiSTiK 2026"),
-          installed: true,
-        }),
-      },
-    });
-    const databasePath = path.resolve(__dirname, "..", ".dev", "main-1.cdb");
-    if (!fs.existsSync(databasePath)) {
-      pending("The development CDB sample is not present");
-      return;
-    }
-    const session = new SofistikSession(databasePath, { environment });
+    const session = developmentSession("main-1.cdb");
+    if (!session) return;
     try {
       const description = await session.describe();
       expect(description.capabilities.geometry).toEqual(
@@ -117,6 +131,48 @@ describe("graviss-sofistik package", () => {
           z: 0.029999999329447746,
         }),
       );
+    } finally {
+      await session.dispose();
+    }
+  }, 30000);
+
+  it("reads a trussed model whose every section is welded from plates", async () => {
+    const session = developmentSession("main-3.cdb");
+    if (!session) return;
+    try {
+      await session.describe();
+      const geometry = await session.getGeometry();
+      expect(geometry.nodes.length).toBe(3001);
+      expect(geometry.elements.filter(({ kind }) => kind === "beam").length).toBe(2922);
+      expect(geometry.elements.filter(({ kind }) => kind === "truss").length).toBe(170);
+
+      // Every truss names the section it carries, and none states a local
+      // frame: the database stores an axial member's direction and nothing to
+      // roll its section about.
+      const trusses = geometry.elements.filter(({ kind }) => kind === "truss");
+      expect(trusses.every(({ sectionId }) => sectionId > 0)).toBe(true);
+      expect(trusses.every(({ localAxes }) => localAxes === undefined)).toBe(true);
+      expect(new Set(trusses.map(({ sectionId }) => sectionId))).toEqual(
+        new Set([52, 54, 55, 73, 76, 77]),
+      );
+
+      // Not one section here is a rectangle, a tube or a polygon: all 21 are
+      // thin-walled, and until the plates were read every one of them fell
+      // through to the rectangle of equivalent stiffness.
+      expect(geometry.sections.length).toBe(21);
+      expect(geometry.sections.every(({ shape }) => shape.kind === "plates")).toBe(true);
+
+      // A welded plate girder: a 10 mm web trimmed to the inner face of each
+      // 260 x 17 flange, both flanges split at the web. The plates tile the
+      // section, so their areas add up to the area the database stores.
+      const girder = geometry.sections.find(({ id }) => id === 71);
+      expect(girder.shape.plates.length).toBe(5);
+      const material = girder.shape.plates.reduce(
+        (total, { from, to, thickness }) =>
+          total + Math.hypot(to[0] - from[0], to[1] - from[1]) * thickness,
+        0,
+      );
+      expect(material).toBeCloseTo(girder.area, 5);
     } finally {
       await session.dispose();
     }

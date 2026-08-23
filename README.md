@@ -6,7 +6,8 @@ Read finite element models from SOFiSTiK CDB databases.
 
 ## Features
 
-- **Database geometry**: reads nodes, beams, shells, springs and the way they act, couplings, restraints, exact section contours, per-corner thicknesses, and element-local axes from `.cdb` databases.
+- **Database geometry**: reads nodes, beams, trusses, cables, shells, springs and the way they act, couplings, restraints, exact section contours, per-corner thicknesses, and element-local axes from `.cdb` databases.
+- **Thin-walled sections**: reads the plates a welded or rolled section is built from, so a plate girder is drawn as the girder it is rather than as the rectangle of equivalent stiffness.
 - **Eccentric shells**: reads a quad's eccentricity flags as the offset the element is drawn at, measured the way the viewer measures it.
 - **Coordinate-system fidelity**: reads the CDB gravity axis so Graviss can orient navigation and reference graphics without changing model coordinates.
 - **Source discovery**: resolves an explicit relative source or a same-basename `.cdb` database beside a `.grv` document.

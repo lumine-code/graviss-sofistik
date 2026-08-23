@@ -1,6 +1,8 @@
 const {
   buildGeometry,
+  platesShape,
   polygonShape,
+  readAxialElements,
   readNodes,
   readCouplings,
   readQuads,
@@ -192,6 +194,69 @@ describe("section shapes", () => {
     expect(polygonShape(columns([100])).points.length).toBe(3);
   });
 
+  it("reads a thin-walled section as the plates it is welded from", () => {
+    // Section 71 of the field model: a welded plate girder. The web stops at
+    // the inner face of each flange and both flanges are split at the web, so
+    // the bands abut and the plates tile the section exactly.
+    const shape = platesShape(
+      read(5, {
+        idp: Int32Array.from([7, 7, 7, 7, 7]),
+        ya: Float32Array.from([0, -0.13, 0, -0.13, 0]),
+        za: Float32Array.from([-0.498, -0.5065, -0.5065, 0.5065, 0.5065]),
+        ye: Float32Array.from([0, 0, 0.13, 0, 0.13]),
+        ze: Float32Array.from([0.498, -0.5065, -0.5065, 0.5065, 0.5065]),
+        t: Float32Array.from([0.01, 0.017, 0.017, 0.017, 0.017]),
+      }),
+    );
+    expect(shape.kind).toBe("plates");
+    expect(shape.plates.length).toBe(5);
+    expect(shape.plates[0].thickness).toBeCloseTo(0.01, 6);
+    expect(shape.plates[0].from[1]).toBeCloseTo(-0.498, 6);
+    expect(shape.plates[0].to[1]).toBeCloseTo(0.498, 6);
+    // The area the plates cover is the area the section has.
+    const material = shape.plates.reduce(
+      (total, { from, to, thickness }) =>
+        total + Math.hypot(to[0] - from[0], to[1] - from[1]) * thickness,
+      0,
+    );
+    expect(material).toBeCloseTo(0.0188, 5);
+  });
+
+  it("drops a plate with no thickness or no length, and has nothing to draw without one", () => {
+    const plates = (t, ye) =>
+      platesShape(
+        read(1, {
+          idp: Int32Array.of(0),
+          ya: Float32Array.of(0),
+          za: Float32Array.of(0),
+          ye: Float32Array.of(ye),
+          ze: Float32Array.of(0),
+          t: Float32Array.of(t),
+        }),
+      );
+    expect(plates(0.01, 0.5).plates.length).toBe(1);
+    expect(plates(0, 0.5)).toBeNull();
+    expect(plates(0.01, 0)).toBeNull();
+    expect(platesShape(read(0, {}))).toBeNull();
+    expect(platesShape(undefined)).toBeNull();
+  });
+
+  it("lets a generated plate stand in only when nothing was drawn", () => {
+    const columns = (flags) =>
+      read(flags.length, {
+        idp: Int32Array.from(flags),
+        ya: Float32Array.from(flags.map((unused, index) => index)),
+        za: Float32Array.from(flags.map(() => 0)),
+        ye: Float32Array.from(flags.map((unused, index) => index + 1)),
+        ze: Float32Array.from(flags.map(() => 0)),
+        t: Float32Array.from(flags.map(() => 0.01)),
+      });
+    // A plate SOFiSTiK generated repeats what was drawn, the same way a
+    // generated polygon does.
+    expect(platesShape(columns([7, 64])).plates.length).toBe(1);
+    expect(platesShape(columns([64, 64])).plates.length).toBe(2);
+  });
+
   it("falls back to the rectangle the section's own stiffness implies", () => {
     const section = readSection(
       12,
@@ -206,6 +271,25 @@ describe("section shapes", () => {
     expect(section.materialId).toBe(3);
     expect(section.shape.kind).toBe("rectangle");
     expect(section.shape.inferred).toBe(true);
+    // Only with nothing stored: a section that names its plates is read from
+    // them rather than from the stiffness they add up to.
+    const walled = readSection(12, {
+      ...read(1, {
+        a: Float32Array.of(0.06),
+        iy: Float32Array.of(0.00045),
+        iz: Float32Array.of(0.0002),
+        mno: Int32Array.of(3),
+      }),
+      panels: read(1, {
+        idp: Int32Array.of(7),
+        ya: Float32Array.of(0),
+        za: Float32Array.of(-0.15),
+        ye: Float32Array.of(0),
+        ze: Float32Array.of(0.15),
+        t: Float32Array.of(0.01),
+      }),
+    });
+    expect(walled.shape.kind).toBe("plates");
     expect(section.shape.height).toBeCloseTo(0.3, 5);
     expect(section.shape.width).toBeCloseTo(0.2, 5);
   });
@@ -342,6 +426,47 @@ describe("readQuads thickness", () => {
     // A plate of one thickness is eccentric by one distance, as it always was.
     expect(quad([0.4, 0, 0, 0, 0], 1 | 64).offset).toBeCloseTo(-0.2, 6);
     expect(quad([0.4, 0, 0, 0, 0], 1 | 128).offset).toBeCloseTo(0.2, 6);
+  });
+});
+
+describe("readAxialElements", () => {
+  it("reads a truss or a cable as the span between its nodes, and the section it carries", () => {
+    const columns = {
+      // The third names a node the model does not have, the fourth spans one
+      // node twice, and the fifth is not an element at all.
+      nr: Int32Array.from([11, 12, 13, 14, 0]),
+      node: Int32Array.from([1, 2, 2, 3, 1, 99, 2, 2, 0, 0]),
+      nrq: Int32Array.from([52, 0, 52, 52, 52]),
+    };
+
+    expect(readAxialElements(read(5, columns), new Set([1, 2, 3]), "truss")).toEqual([
+      { id: "truss-11", sourceId: 11, kind: "truss", nodeIds: [1, 2], sectionId: 52 },
+      // A member naming no section is drawn on its centreline rather than
+      // dropped: it is still a member, and the picture says what is known.
+      { id: "truss-12", sourceId: 12, kind: "truss", nodeIds: [2, 3] },
+    ]);
+
+    // The two records are stored alike, so one reader serves both and only the
+    // kind it is read as differs.
+    expect(readAxialElements(read(1, columns), new Set([1, 2]), "cable")).toEqual([
+      { id: "cable-11", sourceId: 11, kind: "cable", nodeIds: [1, 2], sectionId: 52 },
+    ]);
+  });
+
+  it("states no local axes, because an axial member's record holds none", () => {
+    const [element] = readAxialElements(
+      read(1, {
+        nr: Int32Array.of(11),
+        node: Int32Array.of(1, 2),
+        nrq: Int32Array.of(52),
+        // T is the axis alone, which the viewer already has from the two
+        // nodes. There is no frame here to hand it.
+        t: Float32Array.of(0.6344, 0.773, 0),
+      }),
+      new Set([1, 2]),
+      "truss",
+    );
+    expect(element.localAxes).toBeUndefined();
   });
 });
 
