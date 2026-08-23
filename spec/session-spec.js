@@ -106,9 +106,20 @@ describe("SofistikSession", () => {
     expect(description.capabilities.geometry).toEqual(
       jasmine.objectContaining({ sections: true, localAxes: true }),
     );
-    expect(Object.keys(description.capabilities)).toEqual(["geometry"]);
-    expect(session.getLoadCases).toBeUndefined();
-    expect(session.getResult).toBeUndefined();
+    // A CDB holds what was solved for it and the dimensions a model is divided
+    // along, so the session answers for both beside the geometry.
+    expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "facets"]);
+    expect(description.capabilities.results).toEqual({
+      displacement: true,
+      loadCases: true,
+      beamStations: true,
+    });
+    expect(description.capabilities.facets).toBe(true);
+    expect(typeof session.getLoadCases).toBe("function");
+    expect(typeof session.getResult).toBe("function");
+    await expectAsync(session.getResult({ loadCaseId: 1, kind: "force" })).toBeRejectedWithError(
+      /reads displacements/,
+    );
     expect(description.model.coordinateSystem).toEqual({
       upAxis: "-z",
       handedness: "right",
@@ -145,6 +156,9 @@ describe("SofistikSession", () => {
       "couplings",
       ["keys", "section"],
       ["section", 101],
+      // Groups are read for their names; which elements are in one is
+      // arithmetic on the element number and costs no read.
+      "groups",
     ]);
 
     await session.dispose();

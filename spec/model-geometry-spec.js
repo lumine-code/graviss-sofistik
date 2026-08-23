@@ -1,5 +1,8 @@
 const {
+  buildFacets,
   buildGeometry,
+  groupOf,
+  readGroups,
   defaultLocalAxes,
   ineffectiveAreas,
   gravityVector,
@@ -525,10 +528,10 @@ describe("readAxialElements", () => {
     const options = { kind: "truss", gravity: null };
 
     expect(readAxialElements(read(5, columns), new Set([1, 2, 3]), nodesById, options)).toEqual([
-      { id: "truss-11", sourceId: 11, kind: "truss", nodeIds: [1, 2], sectionId: 52 },
+      { id: "truss-11", number: 11, kind: "truss", nodeIds: [1, 2], sectionId: 52 },
       // A member naming no section is drawn on its centreline rather than
       // dropped: it is still a member, and the picture says what is known.
-      { id: "truss-12", sourceId: 12, kind: "truss", nodeIds: [2, 3] },
+      { id: "truss-12", number: 12, kind: "truss", nodeIds: [2, 3] },
     ]);
 
     // The two records are stored alike, so one reader serves both and only the
@@ -538,7 +541,7 @@ describe("readAxialElements", () => {
         kind: "cable",
         gravity: null,
       }),
-    ).toEqual([{ id: "cable-11", sourceId: 11, kind: "cable", nodeIds: [1, 2], sectionId: 52 }]);
+    ).toEqual([{ id: "cable-11", number: 11, kind: "cable", nodeIds: [1, 2], sectionId: 52 }]);
   });
 
   it("gives an axial member the frame a beam of the same axis would have stored", () => {
@@ -758,5 +761,75 @@ describe("readCouplings", () => {
       numbers,
     );
     expect(mirrored.map(({ id }) => id)).toEqual(["coupling-1-2"]);
+  });
+});
+
+describe("groups and facets", () => {
+  it("derives an element's group from its number and the divisor", () => {
+    // SOFiSTiK stores no membership: the help states it as arithmetic, which is
+    // why a group record is read for its name and never for its contents.
+    expect(groupOf(110001, 10000, [])).toBe(11);
+    expect(groupOf(130001, 10000, [])).toBe(13);
+    expect(groupOf(9999, 10000, [])).toBeNull();
+    // An element with no number of its own - a coupling - is in no group.
+    expect(groupOf(undefined, 10000, [])).toBeNull();
+    expect(groupOf(0, 10000, [])).toBeNull();
+  });
+
+  it("falls back to the interval each group begins at when there is no divisor", () => {
+    // "BASE(NGRP) <= NR < BASE(NGRP+1)", and the base is the group's own
+    // smallest element number.
+    const bases = [
+      { ng: 1, min: 1 },
+      { ng: 5, min: 500 },
+      { ng: 9, min: 900 },
+    ];
+    expect(groupOf(1, 0, bases)).toBe(1);
+    expect(groupOf(499, 0, bases)).toBe(1);
+    expect(groupOf(500, 0, bases)).toBe(5);
+    expect(groupOf(1200, 0, bases)).toBe(9);
+  });
+
+  it("reads a group's name from the whole record and not the short one", () => {
+    // A group is written once entire and again for each element type it holds;
+    // the short form carries no name and would otherwise arrive as a nameless
+    // duplicate of the group it belongs to.
+    const read = {
+      count: 3,
+      columns: {
+        ng: Int32Array.from([11, 11, 12]),
+        typ: Int32Array.from([0, 100, 0]),
+        min: Int32Array.from([110000, 110000, 120000]),
+        text: ["Deck", "", "Piers"],
+      },
+    };
+    expect(readGroups(read)).toEqual([
+      { ng: 11, min: 110000, title: "Deck" },
+      { ng: 12, min: 120000, title: "Piers" },
+    ]);
+  });
+
+  it("names the dimensions a model is divided along and what each element holds", () => {
+    const elements = [
+      { id: "beam-110001", number: 110001, referenceAxis: 7 },
+      { id: "beam-110002", number: 110002, referenceAxis: 7 },
+      { id: "quad-130001", number: 130001 },
+      { id: "coupling-1-2" },
+    ];
+    const facets = buildFacets(elements, [{ ng: 11, min: 110000, title: "Deck" }], 10000);
+
+    expect(facets.map(({ id }) => id)).toEqual(["group", "referenceAxis"]);
+    expect(facets[0].values).toEqual([{ id: 11, title: "Deck" }, { id: 13 }]);
+    expect(elements[0].facetValues).toEqual({ group: 11, referenceAxis: 7 });
+    expect(elements[2].facetValues).toEqual({ group: 13 });
+    // An element with no number belongs to nothing and says nothing.
+    expect(elements[3].facetValues).toBeUndefined();
+    // The axis a member came from is how SOFiSTiK says it; the facet is how the
+    // contract does, so the one it was read from does not survive.
+    expect("referenceAxis" in elements[0]).toBe(false);
+  });
+
+  it("names no facet a model has nothing for", () => {
+    expect(buildFacets([{ id: "quad-1" }], [], 10000)).toEqual([]);
   });
 });

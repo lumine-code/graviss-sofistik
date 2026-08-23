@@ -6,7 +6,8 @@ const prettier = require("eslint-config-prettier");
 const runtimeModules = ["lumine"];
 
 module.exports = [
-  { ignores: ["build/**", "node_modules/**"] },
+  // `.dev` holds local probes against an installed SOFiSTiK, never shipped.
+  { ignores: [".dev/**", "build/**", "node_modules/**"] },
   js.configs.recommended,
   n.configs["flat/recommended-script"],
   {

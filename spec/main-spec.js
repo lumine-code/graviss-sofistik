@@ -106,7 +106,7 @@ describe("graviss-sofistik package", () => {
       expect(description.capabilities.geometry).toEqual(
         jasmine.objectContaining({ sections: true, localAxes: true }),
       );
-      expect(Object.keys(description.capabilities)).toEqual(["geometry"]);
+      expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "facets"]);
       expect(description.model.coordinateSystem).toEqual({
         upAxis: "-z",
         handedness: "right",
@@ -131,6 +131,67 @@ describe("graviss-sofistik package", () => {
           z: 0.029999999329447746,
         }),
       );
+    } finally {
+      await session.dispose();
+    }
+  }, 30000);
+
+  it("reads what the development CDB was solved for, in SI", async () => {
+    const session = developmentSession("main-1.cdb");
+    if (!session) return;
+    try {
+      await session.describe();
+      const geometry = await session.getGeometry();
+
+      // Every element but a coupling carries the number it was written with,
+      // and the group it belongs to is that number divided by the divisor the
+      // system record states — 10000 in this model, so a beam numbered 110001
+      // is in group 11.
+      const group = geometry.facets.find(({ id }) => id === "group");
+      expect(group.title).toBe("Group");
+      expect(group.values.length).toBeGreaterThan(1);
+      const beam = geometry.elements.find(({ id }) => id === "beam-110001");
+      expect(beam.number).toBe(110001);
+      expect(beam.facetValues.group).toBe(11);
+      // A coupling has no element number of its own, so it is in no group.
+      const coupling = geometry.elements.find(({ kind }) => kind === "coupling");
+      expect(coupling?.number).toBeUndefined();
+      expect(coupling?.facetValues?.group).toBeUndefined();
+
+      const loadCases = await session.getLoadCases();
+      expect(loadCases.length).toBeGreaterThan(3);
+      const selfWeight = loadCases.find(({ id }) => id === 101);
+      expect(selfWeight).toEqual(
+        jasmine.objectContaining({ title: "self-weight", kind: "linear", actionType: "G_1" }),
+      );
+      // A case may be named and never solved, and the two are different things.
+      expect(loadCases.find(({ id }) => id === 321).hasResults).toBe(false);
+      // A buckling mode has no sign, which is the one classification a viewer
+      // acts on: it animates such a shape about zero rather than up from it.
+      expect(loadCases.find(({ id }) => id === 10201).kind).toBe("buckling");
+
+      const result = await session.getResult({ loadCaseId: 101 });
+      expect(result.kind).toBe("displacement");
+      expect(result.components).toBe(6);
+      expect(result.nodes.ids.length).toBe(geometry.nodes.length);
+      expect(result.nodes.values.length).toBe(geometry.nodes.length * 6);
+
+      // The unit check, and it is physical rather than arithmetic. This is a
+      // bridge under its own weight: it deflects in millimetres. A factor wrong
+      // by a thousand passes every checksum and fails here.
+      expect(result.extent).toBeGreaterThan(0.00001);
+      expect(result.extent).toBeLessThan(0.5);
+      expect(result.extent * 1000).toBeCloseTo(0.33, 1);
+
+      // A member bends between its ends, and the stations say how.
+      const stations = result.elements.find(({ id }) => id === "beam-110001").stations;
+      expect(stations.length).toBe(2);
+      expect(stations[0].x).toBe(0);
+      expect(stations[1].x).toBeCloseTo(0.085, 5);
+      expect(stations.every(({ u, phi }) => u.length === 3 && phi.length === 3)).toBe(true);
+
+      // Asked for again, the same field comes back rather than being re-read.
+      expect(await session.getResult({ loadCaseId: 101 })).toBe(result);
     } finally {
       await session.dispose();
     }
