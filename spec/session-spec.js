@@ -108,13 +108,13 @@ describe("SofistikSession", () => {
     );
     // A CDB holds what was solved for it and the dimensions a model is divided
     // along, so the session answers for both beside the geometry.
-    expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "facets"]);
+    expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "filterTypes"]);
     expect(description.capabilities.results).toEqual({
       displacement: true,
       loadCases: true,
       beamStations: true,
     });
-    expect(description.capabilities.facets).toBe(true);
+    expect(description.capabilities.filterTypes).toBe(true);
     expect(typeof session.getLoadCases).toBe("function");
     expect(typeof session.getResult).toBe("function");
     await expectAsync(session.getResult({ loadCaseId: 1, kind: "force" })).toBeRejectedWithError(
@@ -159,6 +159,9 @@ describe("SofistikSession", () => {
       // Groups are read for their names; which elements are in one is
       // arithmetic on the element number and costs no read.
       "groups",
+      // Secondary groups are asked for by key first, so a model without any -
+      // the ordinary case - costs one key listing and no reads.
+      ["keys", "secondaryGroups"],
     ]);
 
     await session.dispose();

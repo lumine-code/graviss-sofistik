@@ -1,5 +1,5 @@
 const {
-  buildFacets,
+  buildFilterTypes,
   buildGeometry,
   groupOf,
   readGroups,
@@ -764,7 +764,7 @@ describe("readCouplings", () => {
   });
 });
 
-describe("groups and facets", () => {
+describe("groups and filter types", () => {
   it("derives an element's group from its number and the divisor", () => {
     // SOFiSTiK stores no membership: the help states it as arithmetic, which is
     // why a group record is read for its name and never for its contents.
@@ -811,25 +811,66 @@ describe("groups and facets", () => {
 
   it("names the dimensions a model is divided along and what each element holds", () => {
     const elements = [
-      { id: "beam-110001", number: 110001, referenceAxis: 7 },
-      { id: "beam-110002", number: 110002, referenceAxis: 7 },
-      { id: "quad-130001", number: 130001 },
-      { id: "coupling-1-2" },
+      { id: "beam-110001", kind: "beam", number: 110001, referenceAxis: 7 },
+      { id: "truss-110002", kind: "truss", number: 110002, referenceAxis: 7 },
+      { id: "quad-130001", kind: "shell", number: 130001 },
+      { id: "coupling-1-2", kind: "coupling" },
     ];
-    const facets = buildFacets(elements, [{ ng: 11, min: 110000, title: "Deck" }], 10000);
+    const filterTypes = buildFilterTypes(elements, [{ ng: 11, min: 110000, title: "Deck" }], 10000);
 
-    expect(facets.map(({ id }) => id)).toEqual(["group", "referenceAxis"]);
-    expect(facets[0].values).toEqual([{ id: 11, title: "Deck" }, { id: 13 }]);
-    expect(elements[0].facetValues).toEqual({ group: 11, referenceAxis: 7 });
-    expect(elements[2].facetValues).toEqual({ group: 13 });
+    expect(filterTypes.map(({ id }) => id)).toEqual(["group", "line"]);
+    // A numeric dimension enumerates nothing; a range says what it means
+    // without a list, and only the names the source actually gave survive.
+    expect(filterTypes[0]).toEqual(
+      jasmine.objectContaining({
+        numeric: true,
+        kinds: ["beam", "shell", "truss"],
+        values: [{ id: 11, title: "Deck" }],
+      }),
+    );
+    // The line dimension declares only the kinds that actually held one, and
+    // no values at all - the axes alone would be hundreds of untitled entries.
+    expect(filterTypes[1]).toEqual(
+      jasmine.objectContaining({ numeric: true, kinds: ["beam", "truss"] }),
+    );
+    expect("values" in filterTypes[1]).toBe(false);
+
+    expect(elements[0].filterValues).toEqual({ group: 11, line: 7 });
+    expect(elements[2].filterValues).toEqual({ group: 13 });
     // An element with no number belongs to nothing and says nothing.
-    expect(elements[3].facetValues).toBeUndefined();
-    // The axis a member came from is how SOFiSTiK says it; the facet is how the
-    // contract does, so the one it was read from does not survive.
+    expect(elements[3].filterValues).toBeUndefined();
+    // The axis a member came from is how SOFiSTiK says it; the filter type is
+    // how the contract does, so the one it was read from does not survive.
     expect("referenceAxis" in elements[0]).toBe(false);
   });
 
-  it("names no facet a model has nothing for", () => {
-    expect(buildFacets([{ id: "quad-1" }], [], 10000)).toEqual([]);
+  it("names no dimension a model has nothing for", () => {
+    expect(buildFilterTypes([{ id: "quad-1", kind: "shell" }], [], 10000)).toEqual([]);
+  });
+
+  it("reads secondary groups as the many-valued names they are", () => {
+    const elements = [
+      { id: "beam-110001", kind: "beam", number: 110001 },
+      { id: "beam-110002", kind: "beam", number: 110002 },
+      { id: "quad-130001", kind: "shell", number: 130001 },
+    ];
+    const membership = new Map([
+      [110001, ["PP", "DECK"]],
+      [130001, ["DECK"]],
+    ]);
+    const filterTypes = buildFilterTypes(elements, [], 0, membership);
+    const secondary = filterTypes.find(({ id }) => id === "secondaryGroup");
+    // Named rather than numbered, and an element may be in several at once -
+    // the CDB help is explicit - so the dimension is many-valued.
+    expect(secondary).toEqual(
+      jasmine.objectContaining({
+        title: "Secondary group",
+        multiple: true,
+        kinds: ["beam", "shell"],
+        values: [{ id: "DECK" }, { id: "PP" }],
+      }),
+    );
+    expect(elements[0].filterValues.secondaryGroup).toEqual(["PP", "DECK"]);
+    expect(elements[1].filterValues).toBeUndefined();
   });
 });

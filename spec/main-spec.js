@@ -106,7 +106,7 @@ describe("graviss-sofistik package", () => {
       expect(description.capabilities.geometry).toEqual(
         jasmine.objectContaining({ sections: true, localAxes: true }),
       );
-      expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "facets"]);
+      expect(Object.keys(description.capabilities)).toEqual(["geometry", "results", "filterTypes"]);
       expect(description.model.coordinateSystem).toEqual({
         upAxis: "-z",
         handedness: "right",
@@ -147,16 +147,19 @@ describe("graviss-sofistik package", () => {
       // and the group it belongs to is that number divided by the divisor the
       // system record states — 10000 in this model, so a beam numbered 110001
       // is in group 11.
-      const group = geometry.facets.find(({ id }) => id === "group");
+      const group = geometry.filterTypes.find(({ id }) => id === "group");
       expect(group.title).toBe("Group");
-      expect(group.values.length).toBeGreaterThan(1);
+      // The groups in this model are unnamed, so a numeric dimension declares
+      // no value list at all - a range says what it means without one.
+      expect(group.numeric).toBe(true);
+      expect(group.kinds.length).toBeGreaterThan(1);
       const beam = geometry.elements.find(({ id }) => id === "beam-110001");
       expect(beam.number).toBe(110001);
-      expect(beam.facetValues.group).toBe(11);
+      expect(beam.filterValues.group).toBe(11);
       // A coupling has no element number of its own, so it is in no group.
       const coupling = geometry.elements.find(({ kind }) => kind === "coupling");
       expect(coupling?.number).toBeUndefined();
-      expect(coupling?.facetValues?.group).toBeUndefined();
+      expect(coupling?.filterValues?.group).toBeUndefined();
 
       const loadCases = await session.getLoadCases();
       expect(loadCases.length).toBeGreaterThan(3);
