@@ -1,5 +1,7 @@
 const {
   buildGeometry,
+  defaultLocalAxes,
+  gravityVector,
   platesShape,
   polygonShape,
   readAxialElements,
@@ -430,6 +432,12 @@ describe("readQuads thickness", () => {
 });
 
 describe("readAxialElements", () => {
+  const nodesById = new Map([
+    [1, { id: 1, x: 0, y: 0, z: 0 }],
+    [2, { id: 2, x: 4, y: 0, z: 0 }],
+    [3, { id: 3, x: 4, y: 3, z: 0 }],
+  ]);
+
   it("reads a truss or a cable as the span between its nodes, and the section it carries", () => {
     const columns = {
       // The third names a node the model does not have, the fourth spans one
@@ -438,8 +446,9 @@ describe("readAxialElements", () => {
       node: Int32Array.from([1, 2, 2, 3, 1, 99, 2, 2, 0, 0]),
       nrq: Int32Array.from([52, 0, 52, 52, 52]),
     };
+    const options = { kind: "truss", gravity: null };
 
-    expect(readAxialElements(read(5, columns), new Set([1, 2, 3]), "truss")).toEqual([
+    expect(readAxialElements(read(5, columns), new Set([1, 2, 3]), nodesById, options)).toEqual([
       { id: "truss-11", sourceId: 11, kind: "truss", nodeIds: [1, 2], sectionId: 52 },
       // A member naming no section is drawn on its centreline rather than
       // dropped: it is still a member, and the picture says what is known.
@@ -448,25 +457,88 @@ describe("readAxialElements", () => {
 
     // The two records are stored alike, so one reader serves both and only the
     // kind it is read as differs.
-    expect(readAxialElements(read(1, columns), new Set([1, 2]), "cable")).toEqual([
-      { id: "cable-11", sourceId: 11, kind: "cable", nodeIds: [1, 2], sectionId: 52 },
-    ]);
+    expect(
+      readAxialElements(read(1, columns), new Set([1, 2]), nodesById, {
+        kind: "cable",
+        gravity: null,
+      }),
+    ).toEqual([{ id: "cable-11", sourceId: 11, kind: "cable", nodeIds: [1, 2], sectionId: 52 }]);
   });
 
-  it("states no local axes, because an axial member's record holds none", () => {
+  it("gives an axial member the frame a beam of the same axis would have stored", () => {
     const [element] = readAxialElements(
       read(1, {
         nr: Int32Array.of(11),
         node: Int32Array.of(1, 2),
         nrq: Int32Array.of(52),
         // T is the axis alone, which the viewer already has from the two
-        // nodes. There is no frame here to hand it.
-        t: Float32Array.of(0.6344, 0.773, 0),
+        // nodes. There is no frame in the record to read.
+        t: Float32Array.of(1, 0, 0),
       }),
       new Set([1, 2]),
-      "truss",
+      nodesById,
+      { kind: "truss", gravity: [0, 0, 1] },
     );
-    expect(element.localAxes).toBeUndefined();
+    // The member runs along global x and gravity along global z, so the frame
+    // is the identity - which is what the database stores for the beams
+    // running the same way.
+    expect(element.localAxes).toEqual({ x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] });
+  });
+});
+
+describe("defaultLocalAxes", () => {
+  it("turns a signed gravity axis into the direction gravity acts in", () => {
+    expect(gravityVector(3)).toEqual([0, 0, 1]);
+    expect(gravityVector(-2)).toEqual([0, -1, 0]);
+    expect(gravityVector(1)).toEqual([1, 0, 0]);
+    // A model whose system record says nothing usable has no down to measure
+    // against, and a frame invented without one would be worse than none.
+    expect(gravityVector(0)).toBeNull();
+    expect(gravityVector(4)).toBeNull();
+    expect(gravityVector(undefined)).toBeNull();
+  });
+
+  it("points the local z the way down looks in the member's own cross-section", () => {
+    const gravity = [0, 0, 1];
+    // Horizontal: z is gravity itself, exactly as the beams of the field
+    // models store it.
+    expect(defaultLocalAxes([1, 0, 0], gravity)).toEqual({
+      x: [1, 0, 0],
+      y: [0, 1, 0],
+      z: [0, 0, 1],
+    });
+    expect(defaultLocalAxes([0, 1, 0], gravity)).toEqual({
+      x: [0, 1, 0],
+      y: [-1, 0, 0],
+      z: [0, 0, 1],
+    });
+
+    // Sloping: gravity with the run along the member taken out of it. A real
+    // beam of this axis stores y [0, 1, 0] and z [-0.8939, 0, 0.4483].
+    const sloping = defaultLocalAxes([0.4483, 0, 0.8939], gravity);
+    expect(sloping.y[0]).toBeCloseTo(0, 6);
+    expect(sloping.y[1]).toBeCloseTo(1, 6);
+    expect(sloping.z[0]).toBeCloseTo(-0.8939, 4);
+    expect(sloping.z[2]).toBeCloseTo(0.4483, 4);
+
+    // Reversing the member turns y round with it and leaves z alone, so a
+    // section stands the same way up whichever end its nodes were given from.
+    expect(defaultLocalAxes([-1, 0, 0], gravity)).toEqual({
+      x: [-1, 0, 0],
+      y: [0, -1, 0],
+      z: [0, 0, 1],
+    });
+  });
+
+  it("takes the limit for a member running along gravity", () => {
+    // Straight down there is no y square to both, so the limit is taken in the
+    // plane of gravity and the first global axis that is not gravity. The
+    // columns of a real database store this frame.
+    expect(defaultLocalAxes([0, 0, 1], [0, 0, 1])).toEqual({
+      x: [0, 0, 1],
+      y: [0, 1, 0],
+      z: [-1, 0, 0],
+    });
   });
 });
 

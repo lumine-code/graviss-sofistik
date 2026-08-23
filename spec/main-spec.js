@@ -146,12 +146,20 @@ describe("graviss-sofistik package", () => {
       expect(geometry.elements.filter(({ kind }) => kind === "beam").length).toBe(2922);
       expect(geometry.elements.filter(({ kind }) => kind === "truss").length).toBe(170);
 
-      // Every truss names the section it carries, and none states a local
-      // frame: the database stores an axial member's direction and nothing to
-      // roll its section about.
+      // Every truss names the section it carries, and every one is given the
+      // frame a beam of the same axis would have stored, because the record
+      // holds none. 126 of the 170 run level and 44 slope.
       const trusses = geometry.elements.filter(({ kind }) => kind === "truss");
       expect(trusses.every(({ sectionId }) => sectionId > 0)).toBe(true);
-      expect(trusses.every(({ localAxes }) => localAxes === undefined)).toBe(true);
+      expect(trusses.every(({ localAxes }) => localAxes)).toBe(true);
+      // Gravity is the +z axis here, and every local z leans the way it does
+      // rather than against it - which is what keeps a double angle from being
+      // drawn on its back beside the beams it braces. A level one matches the
+      // gravity axis exactly, which is what those beams store.
+      expect(trusses.every(({ localAxes }) => localAxes.z[2] > 0)).toBe(true);
+      expect(trusses.filter(({ localAxes }) => localAxes.z[2] > 0.999).length).toBe(126);
+      const beam = geometry.elements.find(({ kind }) => kind === "beam");
+      expect(beam.localAxes.z[2]).toBeCloseTo(1, 6);
       expect(new Set(trusses.map(({ sectionId }) => sectionId))).toEqual(
         new Set([52, 54, 55, 73, 76, 77]),
       );
