@@ -50,7 +50,7 @@
     }
   },
   "dependencies": {
-    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#8d2d51d8bdda3f16386782a7a622ed1351d6dcec"
+    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#604a996f79e99273ef049f8bedfedb0db4cdb5ce"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -61,6 +61,6 @@
     "prettier": "^3.9.6"
   },
   "allowScripts": {
-    "github:lumine-code/sofistik-reader#8d2d51d8bdda3f16386782a7a622ed1351d6dcec": true
+    "github:lumine-code/sofistik-reader#604a996f79e99273ef049f8bedfedb0db4cdb5ce": true
   }
 }
