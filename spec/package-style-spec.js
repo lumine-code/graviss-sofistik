@@ -11,9 +11,10 @@ describe("graviss-sofistik package conventions", () => {
     expect(manifest.keywords.length).toBeGreaterThanOrEqual(3);
     expect(manifest.keywords.length).toBeLessThanOrEqual(8);
     expect(manifest.keywords.some((keyword) => manifest.name.includes(keyword))).toBe(false);
-    expect(Object.keys(manifest).indexOf("backgroundTips")).toBe(
-      Object.keys(manifest).indexOf("engines") + 1,
+    expect(manifest.providedServices["background-tips.provider"].versions["1.0.0"]).toBe(
+      "provideBackgroundTips",
     );
+    expect(require("../lib/main").provideBackgroundTips().packageName).toBe("graviss-sofistik");
     expect(featureBullets(readme).length).toBeGreaterThanOrEqual(3);
     expect(featureBullets(readme).length).toBeLessThanOrEqual(9);
     expect(readme).toContain("## Installation");
@@ -32,7 +33,10 @@ describe("graviss-sofistik package conventions", () => {
     expect(fs.existsSync(path.join(root, "lib", "details-pane.js"))).toBe(false);
     expect(fs.existsSync(path.join(root, "lib", "sofistik-details.jsx"))).toBe(false);
     expect(manifest.deserializers).toBeUndefined();
-    expect(Object.keys(manifest.providedServices)).toEqual(["graviss.source"]);
+    expect(Object.keys(manifest.providedServices)).toEqual([
+      "graviss.source",
+      "background-tips.provider",
+    ]);
     expect(Object.keys(manifest.consumedServices)).toEqual(["sofistik.environment"]);
   });
 

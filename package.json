@@ -25,9 +25,6 @@
     "lumine": "^1.0.0",
     "node": ">=24"
   },
-  "backgroundTips": [
-    "You can explore a SOFiSTiK model by opening a Graviss .grv document beside its .cdb database."
-  ],
   "scripts": {
     "test": "lumine --test spec",
     "lint": "eslint . --max-warnings 0",
@@ -39,6 +36,11 @@
       "description": "Reads SOFiSTiK CDB databases into Graviss model sessions.",
       "versions": {
         "1.0.0": "provideGravissSource"
+      }
+    },
+    "background-tips.provider": {
+      "versions": {
+        "1.0.0": "provideBackgroundTips"
       }
     }
   },
