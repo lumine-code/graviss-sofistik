@@ -72,6 +72,10 @@ describe("readQuads", () => {
       { id: "quad-10", nodeIds: [1, 2, 3, 4] },
       { id: "quad-11", nodeIds: [1, 2, 3] },
     ]);
+    expect(elements.map(({ surfaceInterpolation }) => surfaceInterpolation)).toEqual([
+      "linear",
+      "linear",
+    ]);
     // Stored as float32, so compared as float32.
     expect(elements[0].thickness).toBeCloseTo(0.2, 6);
     // A negative thickness is a sign convention, not a missing value.
