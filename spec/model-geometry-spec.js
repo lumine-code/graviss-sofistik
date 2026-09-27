@@ -9,6 +9,7 @@ const {
   platesShape,
   polygonShape,
   readAxialElements,
+  readBeams,
   readNodes,
   readCouplings,
   readQuads,
@@ -48,6 +49,21 @@ describe("readNodes", () => {
   it("reads a free node as no support at all", () => {
     expect(restraintsOf(63)).toBeNull();
     expect(restraintsOf(0)).toEqual([true, true, true, true, true, true]);
+  });
+});
+
+describe("readBeams", () => {
+  it("declares the straight displaced segment used by SOFiSTiK Graphics", () => {
+    const elements = readBeams(
+      read(1, {
+        nr: Int32Array.of(10),
+        node: Int32Array.of(1, 2),
+        nref: Int32Array.of(0),
+        t: Float32Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1),
+      }),
+      new Set([1, 2]),
+    );
+    expect(elements[0].lineInterpolation).toBe("linear");
   });
 });
 
