@@ -178,9 +178,9 @@ describe("graviss-sofistik package", () => {
 
       const result = await session.getResult({ loadCaseId: 101 });
       expect(result.kind).toBe("displacement");
-      expect(result.components).toBe(6);
+      expect(result.components).toBe(7);
       expect(result.nodes.ids.length).toBe(geometry.nodes.length);
-      expect(result.nodes.values.length).toBe(geometry.nodes.length * 6);
+      expect(result.nodes.values.length).toBe(geometry.nodes.length * 7);
 
       // The unit check, and it is physical rather than arithmetic. This is a
       // bridge under its own weight: it deflects in millimetres. A factor wrong
@@ -194,7 +194,11 @@ describe("graviss-sofistik package", () => {
       expect(stations.length).toBe(2);
       expect(stations[0].x).toBe(0);
       expect(stations[1].x).toBeCloseTo(0.085, 5);
-      expect(stations.every(({ u, phi }) => u.length === 3 && phi.length === 3)).toBe(true);
+      expect(
+        stations.every(
+          ({ u, phi, warping }) => u.length === 3 && phi.length === 3 && Number.isFinite(warping),
+        ),
+      ).toBe(true);
 
       // Asked for again, the same field comes back rather than being re-read.
       expect(await session.getResult({ loadCaseId: 101 })).toBe(result);
@@ -278,6 +282,43 @@ describe("graviss-sofistik package", () => {
         ).toBe(true);
         // And a section nothing was taken out of says nothing at all.
         expect(geometry.sections.filter(({ ineffective: areas }) => areas).length).toBe(1);
+      } finally {
+        await session.dispose();
+      }
+    },
+  );
+
+  developmentIt(
+    "keeps the seventh beam degree of freedom and its unit-warping section data",
+    "main-4.cdb",
+    async () => {
+      const session = developmentSession("main-4.cdb");
+      try {
+        await session.describe();
+        const geometry = await session.getGeometry();
+        const plateSections = geometry.sections.filter(({ shape }) => shape?.kind === "plates");
+        expect(plateSections.length).toBeGreaterThan(0);
+        const warpedPlates = plateSections.flatMap(({ shape }) =>
+          shape.plates.filter(({ unitWarping }) => unitWarping?.some((value) => value !== 0)),
+        );
+        expect(warpedPlates.length).toBeGreaterThan(0);
+        expect(warpedPlates.every(({ unitWarping }) => unitWarping.every(Number.isFinite))).toBe(
+          true,
+        );
+
+        const result = await session.getResult({ loadCaseId: 10201 });
+        expect(result.components).toBe(7);
+        let largestNodeWarping = 0;
+        for (let at = 6; at < result.nodes.values.length; at += result.components) {
+          largestNodeWarping = Math.max(largestNodeWarping, Math.abs(result.nodes.values[at]));
+        }
+        expect(largestNodeWarping).toBeGreaterThan(0);
+        const largestStationWarping = Math.max(
+          ...result.elements.flatMap(({ stations }) =>
+            stations.map(({ warping }) => Math.abs(warping)),
+          ),
+        );
+        expect(largestStationWarping).toBeGreaterThan(0);
       } finally {
         await session.dispose();
       }

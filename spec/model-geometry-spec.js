@@ -212,6 +212,8 @@ describe("section shapes", () => {
         ye: Float32Array.from([0, 0, 0.13, 0, 0.13]),
         ze: Float32Array.from([0.498, -0.5065, -0.5065, 0.5065, 0.5065]),
         t: Float32Array.from([0.01, 0.017, 0.017, 0.017, 0.017]),
+        wa: Float32Array.from([-0.02, -0.01, 0, 0.01, 0]),
+        we: Float32Array.from([0.02, 0, -0.01, 0, 0.01]),
       }),
     );
     expect(shape.kind).toBe("plates");
@@ -219,6 +221,8 @@ describe("section shapes", () => {
     expect(shape.plates[0].thickness).toBeCloseTo(0.01, 6);
     expect(shape.plates[0].from[1]).toBeCloseTo(-0.498, 6);
     expect(shape.plates[0].to[1]).toBeCloseTo(0.498, 6);
+    expect(shape.plates[0].unitWarping[0]).toBeCloseTo(-0.02, 6);
+    expect(shape.plates[0].unitWarping[1]).toBeCloseTo(0.02, 6);
     // The area the plates cover is the area the section has.
     const material = shape.plates.reduce(
       (total, { from, to, thickness }) =>
@@ -245,6 +249,45 @@ describe("section shapes", () => {
     expect(plates(0.01, 0)).toBeNull();
     expect(platesShape(read(0, {}))).toBeNull();
     expect(platesShape(undefined)).toBeNull();
+  });
+
+  it("keeps one copy when the CDB repeats an identical plate", () => {
+    const panels = read(4, {
+      idp: Int32Array.from([0, 0, 0, 1024]),
+      ya: Float32Array.from([0, 0, 0.5, 1]),
+      za: Float32Array.from([0, 0, 0, 0]),
+      ye: Float32Array.from([1, 1, 1, 0.5]),
+      ze: Float32Array.from([0, 0, 0, 0]),
+      t: Float32Array.from([0.01, 0.01, 0.02, 0.02]),
+    });
+    // Coincident records can intentionally represent separate layers. When
+    // the section area counts all four, all four stay.
+    expect(platesShape(panels, 0.04).plates.length).toBe(4);
+    const shape = platesShape(panels, 0.02);
+
+    // The first duplicate is identical; the second names the same run in the
+    // opposite direction. Neither adds a second layer of material.
+    expect(shape.plates.length).toBe(2);
+    expect(shape.plates[0].from).toEqual([0, 0]);
+    expect(shape.plates[0].to).toEqual([1, 0]);
+    expect(shape.plates[0].thickness).toBeCloseTo(0.01, 8);
+    expect(shape.plates[1].from).toEqual([0.5, 0]);
+    expect(shape.plates[1].to).toEqual([1, 0]);
+    expect(shape.plates[1].thickness).toBeCloseTo(0.02, 8);
+    const area = shape.plates.reduce(
+      (total, { from, to, thickness }) =>
+        total + Math.hypot(to[0] - from[0], to[1] - from[1]) * thickness,
+      0,
+    );
+    expect(area).toBeCloseTo(0.02, 8);
+
+    // Flags on a repeated record still describe the one physical plate.
+    const areas = ineffectiveAreas(shape, { panels, columns: { a: Float32Array.of(0.02) } });
+    expect(areas.length).toBe(1);
+    expect(areas[0].points[0][0]).toBeCloseTo(0.5, 8);
+    expect(areas[0].points[0][1]).toBeCloseTo(0.01, 8);
+    expect(areas[0].points[2][0]).toBeCloseTo(1, 8);
+    expect(areas[0].points[2][1]).toBeCloseTo(-0.01, 8);
   });
 
   it("lets a generated plate stand in only when nothing was drawn", () => {
