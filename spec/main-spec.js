@@ -166,12 +166,24 @@ describe("graviss-sofistik package", () => {
 
       const loadCases = await session.getLoadCases();
       expect(loadCases.length).toBeGreaterThan(3);
+      expect(loadCases.every(({ hasResults }) => hasResults === true)).toBe(true);
       const selfWeight = loadCases.find(({ id }) => id === 101);
       expect(selfWeight).toEqual(
         jasmine.objectContaining({ title: "self-weight", kind: "linear", actionType: "G_1" }),
       );
-      // A case may be named and never solved, and the two are different things.
-      expect(loadCases.find(({ id }) => id === 321).hasResults).toBe(false);
+      // A named load definition that was never solved is not a result choice.
+      expect(loadCases.find(({ id }) => id === 321)).toBeUndefined();
+      // Natural frequencies are stored as the eigenmode variant of LC_CTRL,
+      // not as an ordinary load-case record. They carry nodal results and keep
+      // the frequency title SOFiSTiK wrote.
+      const eigenmode = loadCases.find(({ id }) => id === 10101);
+      expect(eigenmode).toEqual(
+        jasmine.objectContaining({
+          kind: "eigenmode",
+          title: jasmine.stringMatching(/13\.13 Hz/),
+          hasResults: true,
+        }),
+      );
       // A buckling mode has no sign, which is the one classification a viewer
       // acts on: it animates such a shape about zero rather than up from it.
       expect(loadCases.find(({ id }) => id === 10201).kind).toBe("buckling");
@@ -202,6 +214,10 @@ describe("graviss-sofistik package", () => {
 
       // Asked for again, the same field comes back rather than being re-read.
       expect(await session.getResult({ loadCaseId: 101 })).toBe(result);
+
+      const modalResult = await session.getResult({ loadCaseId: eigenmode.id });
+      expect(modalResult.nodes.ids.length).toBe(geometry.nodes.length);
+      expect(modalResult.extent).toBeGreaterThan(0);
     } finally {
       await session.dispose();
     }
