@@ -19,7 +19,11 @@ describe("units", () => {
     expect(siFactor(1152)).toBe(1000);
     expect(siFactor(1090)).toBe(1000);
     expect(siFactor(1092)).toBe(1000);
+    expect(siFactor(1095)).toBe(1000);
+    expect(siFactor(1098)).toBe(1000);
     expect(storedUnit(1101)).toBe("kN");
+    expect(storedUnit(1095)).toBe("kN/m");
+    expect(storedUnit(1098)).toBe("kNm/rad");
     expect(2.1e8 * siFactor(1090)).toBe(2.1e11);
   });
 

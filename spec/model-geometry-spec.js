@@ -680,7 +680,7 @@ describe("readSprings", () => {
         node: Int32Array.from([1, 2, 1, 0, 1, 0, 0, 0]),
         t: Float32Array.from([0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]),
         cp: Float32Array.from([1000, 0, 0, 0]),
-        cq: Float32Array.from([0, 0, 0, 0]),
+        cq: Float32Array.from([250, 0, 0, 0]),
         cm: Float32Array.from([0, 0, 500, 0]),
       }),
       numbers,
@@ -698,6 +698,9 @@ describe("readSprings", () => {
     // only read the other way for one that holds nothing but a rotation.
     expect(elements[0].rotational).toBeUndefined();
     expect(elements[1].rotational).toBeUndefined();
+    expect(elements[0].stiffness).toBe(1000);
+    expect(elements[0].transverseStiffness).toBe(250);
+    expect(elements[1].stiffness).toBeUndefined();
   });
 
   it("reads a spring that resists only rotation as one that turns", () => {
@@ -716,6 +719,10 @@ describe("readSprings", () => {
     );
     expect(elements[0].rotational).toBe(true);
     expect(elements[1].rotational).toBeUndefined();
+    expect(elements[0].stiffness).toBeUndefined();
+    expect(elements[0].rotationalStiffness).toBe(500);
+    expect(elements[1].stiffness).toBe(1000);
+    expect(elements[1].rotationalStiffness).toBe(500);
   });
 
   it("drops a grounded spring with no direction to draw it along", () => {
