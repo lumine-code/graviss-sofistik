@@ -894,6 +894,7 @@ describe("groups and filter types", () => {
     expect(filterTypes[0]).toEqual(
       jasmine.objectContaining({
         numeric: true,
+        quickFilterCode: "G",
         kinds: ["beam", "shell", "truss"],
         values: [{ id: 11, title: "Deck" }],
       }),
@@ -901,7 +902,7 @@ describe("groups and filter types", () => {
     // The line dimension declares only the kinds that actually held one, and
     // no values at all - the axes alone would be hundreds of untitled entries.
     expect(filterTypes[1]).toEqual(
-      jasmine.objectContaining({ numeric: true, kinds: ["beam", "truss"] }),
+      jasmine.objectContaining({ numeric: true, quickFilterCode: "L", kinds: ["beam", "truss"] }),
     );
     expect("values" in filterTypes[1]).toBe(false);
 
@@ -935,6 +936,7 @@ describe("groups and filter types", () => {
     expect(secondary).toEqual(
       jasmine.objectContaining({
         title: "Secondary group",
+        quickFilterCode: "SG",
         multiple: true,
         kinds: ["beam", "shell"],
         values: [{ id: "DECK" }, { id: "PP" }],
@@ -942,5 +944,23 @@ describe("groups and filter types", () => {
     );
     expect(elements[0].filterValues.secondaryGroup).toEqual(["PP", "DECK"]);
     expect(elements[1].filterValues).toBeUndefined();
+  });
+
+  it("declares one quick-filter prefix per available source dimension, including one-kind dimensions", () => {
+    const elements = [{ id: "beam-110001", kind: "beam", number: 110001, referenceAxis: 7 }];
+    const types = buildFilterTypes(
+      elements,
+      [{ ng: 11, min: 110000, title: "Deck" }],
+      10000,
+      new Map([[110001, ["DECK"]]]),
+    );
+    expect(types.map(({ id, quickFilterCode, kinds }) => ({ id, quickFilterCode, kinds }))).toEqual(
+      [
+        { id: "group", quickFilterCode: "G", kinds: ["beam"] },
+        { id: "line", quickFilterCode: "L", kinds: ["beam"] },
+        { id: "secondaryGroup", quickFilterCode: "SG", kinds: ["beam"] },
+      ],
+    );
+    expect(elements[0].filterValues).toEqual({ group: 11, line: 7, secondaryGroup: ["DECK"] });
   });
 });
