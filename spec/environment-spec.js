@@ -55,6 +55,15 @@ describe("SofistikEnvironment", () => {
     );
   });
 
+  it("reports an unresolved native environment without inventing a release year", () => {
+    const environment = new SofistikEnvironment({
+      resolver: { resolve: () => ({ version: null, root: "installation-root", installed: false }) },
+    });
+    expect(() => environment.resolve("model.cdb")).toThrowError(
+      "No SOFiSTiK release is installed at installation-root.",
+    );
+  });
+
   it("passes the edition through for the reader to accept or refuse", () => {
     const environment = new SofistikEnvironment({
       resolver: { resolve: () => resolved("2026", "student") },
