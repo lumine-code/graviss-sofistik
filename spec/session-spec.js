@@ -378,6 +378,58 @@ describe("SofistikSession", () => {
       });
     }
   });
+
+  it("shares a pending load-case index, retries a rejected read and caches only the successful index", async () => {
+    let rejectIndex, started;
+    const pending = new Promise((resolve, reject) => {
+      rejectIndex = reject;
+    });
+    const entered = new Promise((resolve) => {
+      started = resolve;
+    });
+    let indexReads = 0;
+    const database = {
+      read: jasmine
+        .createSpy("read")
+        .and.callFake((name) =>
+          name === "system"
+            ? { count: 1, columns: { iprob: Int32Array.of(0), iachs: Int32Array.of(-3) } }
+            : { count: 1, columns: { kind: Int32Array.of(0), rtex: ["Case 101"] } },
+        ),
+      keys: jasmine.createSpy("keys").and.callFake((name) => {
+        if (name === "loadCase" && ++indexReads === 1) {
+          started();
+          return pending;
+        }
+        return Int32Array.of(101);
+      }),
+      dispose: jasmine.createSpy("dispose"),
+    };
+    const session = new SofistikSession("main.cdb", {
+      database,
+      environment: { resolve: () => ({ version: "2026", edition: "educational" }) },
+    });
+    try {
+      await session.describe();
+      const first = session.getLoadCases();
+      const same = session.getLoadCases();
+      const rejected = expectAsync(Promise.all([first, same])).toBeRejectedWithError(
+        "temporary index failure",
+      );
+      await entered;
+      expect(indexReads).toBe(1);
+      rejectIndex(new Error("temporary index failure"));
+      await rejected;
+      expect(session.loadCasesPromise).toBeNull();
+      const retried = await session.getLoadCases();
+      expect(retried).toEqual([{ id: 101, title: "Case 101", kind: "linear", hasResults: true }]);
+      expect(await session.getLoadCases()).toBe(retried);
+      expect(indexReads).toBe(2);
+      expect(database.keys.calls.allArgs()).toEqual([["loadCase"], ["loadCase"], ["nodeResults"]]);
+    } finally {
+      await session.dispose();
+    }
+  });
 });
 
 describe("SofistikSourceProvider", () => {
