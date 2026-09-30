@@ -8,11 +8,9 @@ describe("SofistikEnvironment", () => {
 
   it("takes the year, installation and edition from the shared library resolver", () => {
     const databasePath = path.resolve("model.cdb");
-    const projectPath = path.resolve("project");
     const resolve = jasmine.createSpy("resolve").and.returnValue(resolved("2026", "educational"));
     const environment = new SofistikEnvironment({
       resolver: { resolve },
-      projectPathForFile: () => projectPath,
     });
     expect(environment.resolve(databasePath)).toEqual({
       databasePath,
@@ -21,29 +19,38 @@ describe("SofistikEnvironment", () => {
       environmentRoot: "root",
     });
     expect(resolve).toHaveBeenCalledWith({
-      projectPath,
       filePath: databasePath,
       version: undefined,
       edition: undefined,
     });
   });
 
-  it("uses the workspace root and the adjacent directory outside it", () => {
+  it("uses the requested database path without consulting workspace roots", () => {
     const root = path.resolve("project");
     const inner = path.join(root, "inner");
-    const containing = spyOn(lumine.project, "relativizePath").and.callFake((filePath) =>
-      filePath.startsWith(inner + path.sep)
-        ? [inner, path.relative(inner, filePath)]
-        : [null, filePath],
-    );
+    const containing = spyOn(lumine.project, "relativizePath");
     const resolve = jasmine.createSpy("resolve").and.returnValue(resolved());
     const environment = new SofistikEnvironment({ resolver: { resolve } });
     environment.resolve(path.join(inner, "model.cdb"));
-    expect(resolve.calls.mostRecent().args[0].projectPath).toBe(inner);
+    expect(resolve.calls.mostRecent().args[0].filePath).toBe(path.join(inner, "model.cdb"));
+    expect(resolve.calls.mostRecent().args[0].projectPath).toBeUndefined();
     const outside = path.resolve("elsewhere", "model.cdb");
     environment.resolve(outside);
-    expect(resolve.calls.mostRecent().args[0].projectPath).toBe(path.dirname(outside));
-    expect(containing).toHaveBeenCalledWith(outside);
+    expect(resolve.calls.mostRecent().args[0].filePath).toBe(outside);
+    expect(containing).not.toHaveBeenCalled();
+  });
+
+  it("resolves a view's adjacent environment while keeping its external database path", () => {
+    const databasePath = path.resolve("external", "model.cdb");
+    const filePath = path.resolve("project", "views", "model.grv");
+    const resolve = jasmine.createSpy("resolve").and.returnValue(resolved());
+    const environment = new SofistikEnvironment({ resolver: { resolve } });
+    expect(environment.resolve(databasePath, { filePath }).databasePath).toBe(databasePath);
+    expect(resolve.calls.mostRecent().args[0]).toEqual({
+      filePath,
+      version: undefined,
+      edition: undefined,
+    });
   });
 
   it("names the selected year when its installation is missing instead of substituting another", () => {
@@ -78,7 +85,6 @@ describe("SofistikEnvironment", () => {
       environment.resolve("model.cdb", { version: "2022", edition: "educational" }).version,
     ).toBe("2022");
     expect(resolve.calls.mostRecent().args[0]).toEqual({
-      projectPath: path.dirname(path.resolve("model.cdb")),
       version: "2022",
       edition: "educational",
       filePath: path.resolve("model.cdb"),

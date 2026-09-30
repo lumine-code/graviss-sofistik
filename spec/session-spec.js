@@ -445,7 +445,6 @@ describe("SofistikSourceProvider", () => {
       exists: (filePath) => path.basename(filePath) === "main.cdb",
       Session,
       environment,
-      projectPathForFile: () => path.resolve("views"),
     });
     const viewPath = path.resolve("views", "main.grv");
     const implicit = provider.createSession({
@@ -455,7 +454,7 @@ describe("SofistikSourceProvider", () => {
     expect(implicit instanceof Session).toBe(true);
     expect(sessions[0]).toEqual({
       filePath: path.resolve("views", "main.cdb"),
-      options: { title: "Main", environment, projectPath: path.resolve("views") },
+      options: { title: "Main", environment, filePath: viewPath },
     });
 
     const explicit = provider.resolveSource({ source: "../data/model.cdb" }, viewPath);

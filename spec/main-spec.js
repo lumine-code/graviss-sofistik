@@ -140,13 +140,10 @@ describe("graviss-sofistik package", () => {
       const { SofistikSession: CurrentSession } = require("../lib/sofistik-session");
       const { SofistikEnvironment: CurrentEnvironment } = require("../lib/environment");
       const environment = new CurrentEnvironment();
-      const projectPath = path.resolve(__dirname, "../..");
       const session = new CurrentSession(path.resolve(__dirname, "../.dev/main-1.cdb"), {
-        projectPath,
         environment: {
           resolve: (filePath) =>
             environment.resolve(filePath, {
-              projectPath,
               version: "2026",
               edition: "educational",
             }),

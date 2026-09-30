@@ -3,7 +3,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { SofistikEnvironmentResolver } = require("@lumine-code/sofistik-env");
 
-describe("Graviss SOFiSTiK project context", () => {
+describe("Graviss SOFiSTiK adjacent file context", () => {
   let temporaryRoot, previousProjectPaths, session, mainModule;
 
   beforeEach(async () => {
@@ -21,25 +21,29 @@ describe("Graviss SOFiSTiK project context", () => {
     fs.rmSync(temporaryRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
 
-  it("selects the owning view's root definition for an external CDB and snapshots its native options", async () => {
+  it("selects the owning view's adjacent definition for an external CDB and snapshots its native options", async () => {
     const projectPath = path.join(temporaryRoot, "project");
     const viewDirectory = path.join(projectPath, "views");
     const externalPath = path.join(temporaryRoot, "external");
     const installationRoot = path.join(temporaryRoot, "installed");
-    const installPath = path.join(installationRoot, "2024", "SOFiSTiK 2024");
+    const installPath = path.join(installationRoot, "2026", "SOFiSTiK 2026");
     fs.mkdirSync(viewDirectory, { recursive: true });
     fs.mkdirSync(externalPath);
     fs.mkdirSync(path.join(installPath, "interfaces", "64bit"), { recursive: true });
     fs.writeFileSync(path.join(installPath, "wps.exe"), "");
-    fs.writeFileSync(path.join(installPath, "interfaces", "64bit", "sof_cdb_w_edu-2024.dll"), "");
-    const definition = path.join(projectPath, "sofistik.def");
+    fs.writeFileSync(path.join(installPath, "interfaces", "64bit", "sof_cdb_w_edu-2026.dll"), "");
+    const olderInstallPath = path.join(installationRoot, "2024", "SOFiSTiK 2024");
+    fs.mkdirSync(olderInstallPath, { recursive: true });
+    fs.writeFileSync(path.join(olderInstallPath, "wps.exe"), "");
+    fs.writeFileSync(path.join(projectPath, "sofistik.def"), "SOF_VERSION=2024\nSOF_LANGUAGE=EN\n");
+    const definition = path.join(viewDirectory, "sofistik.def");
     fs.writeFileSync(
       definition,
-      "SOF_VERSION = 2024\nSOF_LANGUAGE = DE\nSOF_EDITION = educational\n",
+      "SOF_VERSION = 2026\nSOF_LANGUAGE = DE\nSOF_EDITION = educational\n",
     );
     fs.writeFileSync(
       path.join(externalPath, "sofistik.def"),
-      "SOF_VERSION = 2026\nSOF_LANGUAGE = EN\nSOF_EDITION = professional\n",
+      "SOF_VERSION = 2024\nSOF_LANGUAGE = EN\nSOF_EDITION = professional\n",
     );
     const databasePath = path.join(externalPath, "model.cdb");
     fs.writeFileSync(databasePath, "");
@@ -58,26 +62,63 @@ describe("Graviss SOFiSTiK project context", () => {
       filePath: viewPath,
       viewDocument: { getData: () => document },
     });
-    expect(session.projectPath).toBe(projectPath);
+    expect(session.filePath).toBe(viewPath);
     expect(session.databasePath).toBe(databasePath);
     const selected = await session.resolveEnvironment();
-    expect(selected.version).toBe("2024");
+    expect(selected.version).toBe("2026");
     expect(selected.edition).toBe("educational");
-    expect(resolve.calls.mostRecent().args[0].projectPath).toBe(projectPath);
+    expect(resolve.calls.mostRecent().args[0].filePath).toBe(viewPath);
+    expect(resolve.calls.mostRecent().args[0].projectPath).toBeUndefined();
     expect(resolve.calls.mostRecent().returnValue.language).toBe("de");
 
     const database = { dispose: jasmine.createSpy("dispose") };
     session.databaseFactory = jasmine.createSpy("databaseFactory").and.returnValue(database);
     expect(await session.getDatabase()).toBe(database);
     expect(session.databaseFactory).toHaveBeenCalledWith(databasePath, {
-      version: "2024",
+      version: "2026",
       edition: "educational",
       environmentRoot: installationRoot,
     });
-    fs.writeFileSync(definition, "SOF_VERSION = 2026\nSOF_EDITION = professional\n");
+    fs.writeFileSync(definition, "SOF_VERSION = 2024\nSOF_EDITION = professional\n");
     expect(await session.resolveEnvironment()).toBe(selected);
     expect(await session.getDatabase()).toBe(database);
     expect(resolve).toHaveBeenCalledTimes(1);
     expect(session.databaseFactory).toHaveBeenCalledTimes(1);
+    const reopened = mainModule.provideGravissSource().createSession({
+      filePath: viewPath,
+      viewDocument: { getData: () => document },
+    });
+    try {
+      expect((await reopened.resolveEnvironment()).version).toBe("2024");
+      expect((await reopened.resolveEnvironment()).edition).toBe("professional");
+    } finally {
+      await reopened.dispose();
+    }
+    expect(mainModule.environment.resolve(databasePath).version).toBe("2024");
+  });
+
+  it("does not inherit a parent definition when a nested view has none", async () => {
+    const projectPath = path.join(temporaryRoot, "project");
+    const viewDirectory = path.join(projectPath, "views");
+    const installationRoot = path.join(temporaryRoot, "installed");
+    const installPath = path.join(installationRoot, "2026", "SOFiSTiK 2026");
+    fs.mkdirSync(viewDirectory, { recursive: true });
+    fs.mkdirSync(installPath, { recursive: true });
+    fs.writeFileSync(path.join(installPath, "wps.exe"), "");
+    fs.writeFileSync(
+      path.join(projectPath, "sofistik.def"),
+      "SOF_VERSION=2024\nSOF_EDITION=educational\n",
+    );
+    const viewPath = path.join(viewDirectory, "model.grv");
+    fs.writeFileSync(path.join(viewDirectory, "model.cdb"), "");
+    lumine.project.setPaths([projectPath]);
+    mainModule.environment.resolver = new SofistikEnvironmentResolver({ root: installationRoot });
+    session = mainModule.provideGravissSource().createSession({
+      filePath: viewPath,
+      viewDocument: { getData: () => ({ title: "Nested Model" }) },
+    });
+    const selected = await session.resolveEnvironment();
+    expect(selected.version).toBe("2026");
+    expect(selected.edition).toBe("professional");
   });
 });
