@@ -133,6 +133,63 @@ describe("graviss-sofistik package", () => {
     },
   );
 
+  developmentIt(
+    "reads PP from the native calculated shell list without selecting overlapping beams",
+    "main-1.cdb",
+    async () => {
+      const { SofistikSession: CurrentSession } = require("../lib/sofistik-session");
+      const { SofistikEnvironment: CurrentEnvironment } = require("../lib/environment");
+      const environment = new CurrentEnvironment();
+      const projectPath = path.resolve(__dirname, "../..");
+      const session = new CurrentSession(path.resolve(__dirname, "../.dev/main-1.cdb"), {
+        projectPath,
+        environment: {
+          resolve: (filePath) =>
+            environment.resolve(filePath, {
+              projectPath,
+              version: "2026",
+              edition: "educational",
+            }),
+        },
+      });
+      try {
+        await session.describe();
+        const database = await session.getDatabase();
+        const raw = await database.read("secondaryGroups", 0x20205050, { partial: true });
+        expect(Array.from(raw.list.columns.id)).toEqual([200]);
+        expect(Array.from(raw.list.columns.nr)).toEqual([210001, -213486]);
+        const geometry = await session.getGeometry();
+        // SDK SGRP_LIS_ID_QUAD=200 scopes the calculated range to QUADs. The
+        // native model deliberately has BEAMs with the same element numbers.
+        const from = raw.list.columns.nr[0];
+        const to = -raw.list.columns.nr[1];
+        const inRange = (element) => element.number >= from && element.number <= to;
+        const expected = geometry.elements.filter(
+          (element) => element.kind === "shell" && inRange(element),
+        );
+        const actual = geometry.elements.filter((element) =>
+          element.filterValues?.secondaryGroup?.includes("PP"),
+        );
+        expect(expected.length).toBe(3486);
+        expect(geometry.elements.filter(inRange).length).toBe(4006);
+        expect(
+          geometry.elements.filter((element) => element.kind === "beam" && inRange(element)).length,
+        ).toBe(520);
+        expect(actual.map(({ id }) => id)).toEqual(expected.map(({ id }) => id));
+        expect(geometry.filterTypes.find(({ id }) => id === "secondaryGroup")).toEqual(
+          jasmine.objectContaining({
+            quickFilterCode: "SG",
+            multiple: true,
+            kinds: ["shell"],
+            values: [{ id: "PP" }],
+          }),
+        );
+      } finally {
+        await session.dispose();
+      }
+    },
+  );
+
   developmentIt("reads what the development CDB was solved for, in SI", "main-1.cdb", async () => {
     const session = developmentSession("main-1.cdb");
     try {

@@ -3,6 +3,7 @@ const {
   buildGeometry,
   groupOf,
   readGroups,
+  readSecondaryGroups,
   defaultLocalAxes,
   ineffectiveAreas,
   gravityVector,
@@ -926,8 +927,8 @@ describe("groups and filter types", () => {
       { id: "quad-130001", kind: "shell", number: 130001 },
     ];
     const membership = new Map([
-      [110001, ["PP", "DECK"]],
-      [130001, ["DECK"]],
+      ["beam:110001", ["PP", "DECK"]],
+      ["shell:130001", ["DECK"]],
     ]);
     const filterTypes = buildFilterTypes(elements, [], 0, membership);
     const secondary = filterTypes.find(({ id }) => id === "secondaryGroup");
@@ -952,7 +953,7 @@ describe("groups and filter types", () => {
       elements,
       [{ ng: 11, min: 110000, title: "Deck" }],
       10000,
-      new Map([[110001, ["DECK"]]]),
+      new Map([["beam:110001", ["DECK"]]]),
     );
     expect(types.map(({ id, quickFilterCode, kinds }) => ({ id, quickFilterCode, kinds }))).toEqual(
       [
@@ -962,5 +963,160 @@ describe("groups and filter types", () => {
       ],
     );
     expect(elements[0].filterValues).toEqual({ group: 11, line: 7, secondaryGroup: ["DECK"] });
+  });
+});
+
+describe("calculated secondary-group lists", () => {
+  const keyPP = 0x20205050;
+  const keyAA = 0x20204141;
+
+  function calculated(ids, numbers, width) {
+    return {
+      count: ids.length,
+      fields: [
+        { name: "id", count: 1 },
+        { name: "nr", count: width },
+      ],
+      columns: { id: Int32Array.from(ids), nr: Int32Array.from(numbers) },
+    };
+  }
+
+  function database(records) {
+    return {
+      keys: async () => Int32Array.from(records.keys()),
+      read: jasmine.createSpy("read secondary group").and.callFake(async (name, key) => {
+        expect(name).toBe("secondaryGroups");
+        return records.get(key);
+      }),
+    };
+  }
+
+  it("decodes a real-shaped PP calculated shell range without including beams sharing its numbers", async () => {
+    const elements = [
+      { kind: "beam", number: 210001 },
+      { kind: "shell", number: 210001 },
+      { kind: "shell", number: 213486 },
+      { kind: "shell", number: 213487 },
+    ];
+    const membership = await readSecondaryGroups(
+      database(
+        new Map([
+          [
+            keyPP,
+            {
+              count: 1,
+              columns: { id0: Int32Array.of(0), typ: Int32Array.of(16) },
+              list: calculated([200], [210001, -213486], 2),
+            },
+          ],
+        ]),
+      ),
+      elements,
+    );
+    expect([...membership]).toEqual([
+      ["shell:210001", ["PP"]],
+      ["shell:213486", ["PP"]],
+    ]);
+    const types = buildFilterTypes(elements, [], 0, membership);
+    expect(types[0]).toEqual(
+      jasmine.objectContaining({
+        id: "secondaryGroup",
+        quickFilterCode: "SG",
+        multiple: true,
+        kinds: ["shell"],
+        values: [{ id: "PP" }],
+      }),
+    );
+    expect(elements[0].filterValues).toBeUndefined();
+    expect(elements[1].filterValues.secondaryGroup).toEqual(["PP"]);
+  });
+
+  it("uses each merged record's stride and keeps the finished set instead of replaying original add/subtract lists", async () => {
+    const elements = [
+      { kind: "beam", number: 1 },
+      { kind: "beam", number: 2 },
+      { kind: "beam", number: 3 },
+      { kind: "shell", number: 1 },
+      { kind: "shell", number: 2 },
+      { kind: "shell", number: 3 },
+    ];
+    const membership = await readSecondaryGroups(
+      database(
+        new Map([
+          [
+            keyPP,
+            {
+              list: calculated([100, 200], [1, -2, 0, 0, 2, -3, 0, 0], 4),
+              selecting: calculated([1100, 1200], [1, -9, 0, 0, 1, -3, 0, 0], 4),
+              excluding: calculated([2100, 2200], [3, -9, 0, 0, 1, 0, 0, 0], 4),
+            },
+          ],
+        ]),
+      ),
+      elements,
+    );
+    expect([...membership.keys()]).toEqual(["beam:1", "beam:2", "shell:2", "shell:3"]);
+  });
+
+  it("preserves overlapping names and recognizes only the supported SDK element-family identifiers", async () => {
+    const kinds = ["beam", "truss", "cable", "spring", "shell", "coupling"];
+    const elements = kinds.map((kind) => ({ kind, number: 1 }));
+    const membership = await readSecondaryGroups(
+      database(
+        new Map([
+          [
+            keyPP,
+            {
+              list: calculated(
+                [100, 150, 160, 170, 200, 20, 120, 300, 999],
+                new Array(9).fill(1),
+                1,
+              ),
+            },
+          ],
+          [keyAA, { list: calculated([200, 200], [1, 1], 1) }],
+        ]),
+      ),
+      elements,
+    );
+    expect([...membership.keys()]).toEqual(["beam:1", "truss:1", "cable:1", "spring:1", "shell:1"]);
+    expect(membership.get("shell:1")).toEqual(["PP", "AA"]);
+    expect(membership.has("coupling:1")).toBe(false);
+  });
+
+  it("does not guess unresolved references or enumerate sparse number ranges", async () => {
+    const elements = [
+      { kind: "shell", number: 1 },
+      { kind: "shell", number: 1_000_000_000 },
+    ];
+    const membership = await readSecondaryGroups(
+      database(
+        new Map([
+          [
+            keyPP,
+            {
+              list: calculated([200, 200], [1, -1_000_000_000, 0, 0, -32, 1], 3),
+            },
+          ],
+        ]),
+      ),
+      elements,
+    );
+    expect([...membership.keys()]).toEqual(["shell:1", "shell:1000000000"]);
+    expect(
+      await readSecondaryGroups(
+        database(
+          new Map([
+            [
+              keyAA,
+              {
+                list: calculated([200], [0, -32, 1], 3),
+              },
+            ],
+          ]),
+        ),
+        elements,
+      ),
+    ).toBeNull();
   });
 });
