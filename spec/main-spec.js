@@ -18,7 +18,7 @@ const DLL_PATH = path.join(
 
 function developmentEnvironment() {
   return new SofistikEnvironment({
-    environmentProvider: {
+    resolver: {
       resolve: () => ({
         version: "2026",
         edition: "educational",
@@ -62,16 +62,9 @@ describe("graviss-sofistik package", () => {
     expect(commands.filter((name) => name.startsWith("graviss-sofistik:"))).toEqual([]);
   });
 
-  it("unwraps the sofistik-tools environment service", () => {
-    const provider = { resolve() {} };
-    const consumption = main.consumeSofistikEnvironment({
-      name: "sofistik-environment",
-      version: "1.0.0",
-      provider,
-    });
-    expect(main.environment.environmentProvider).toBe(provider);
-    consumption.dispose();
-    expect(main.environment.environmentProvider).toBeNull();
+  it("owns its resolver independently of an environment service", () => {
+    expect(typeof main.environment.resolver.resolve).toBe("function");
+    expect(main.consumeSofistikEnvironment).toBeUndefined();
   });
 
   it("provides a graviss.source provider that resolves CDB databases", () => {

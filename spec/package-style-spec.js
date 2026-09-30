@@ -37,7 +37,10 @@ describe("graviss-sofistik package conventions", () => {
       "graviss.source",
       "background-tips.provider",
     ]);
-    expect(Object.keys(manifest.consumedServices)).toEqual(["sofistik.environment"]);
+    expect(manifest.consumedServices).toBeUndefined();
+    expect(manifest.dependencies["@lumine-code/sofistik-data"]).toMatch(
+      /^github:lumine-code\/sofistik-data#[0-9a-f]{40}$/,
+    );
   });
 
   it("ships a cross-platform CI definition", () => {

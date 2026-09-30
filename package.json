@@ -44,14 +44,8 @@
       }
     }
   },
-  "consumedServices": {
-    "sofistik.environment": {
-      "versions": {
-        "^1.0.0": "consumeSofistikEnvironment"
-      }
-    }
-  },
   "dependencies": {
+    "@lumine-code/sofistik-data": "github:lumine-code/sofistik-data#03f166d91b41a3f045242dc190bf78c587203243",
     "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#3bad46f9014eae49f3231a7ea051fcbce23c06c0"
   },
   "devDependencies": {

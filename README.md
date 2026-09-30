@@ -23,7 +23,8 @@ To install `graviss-sofistik` search for it in the Install pane of the Lumine se
 ## Services
 
 - `graviss.source`: provided to Graviss so it can discover and read SOFiSTiK CDB databases.
-- `sofistik.environment`: consumed to resolve the SOFiSTiK version, installation folder and licensed edition for the database path.
+
+Database sessions use `SofistikEnvironmentResolver` from `@lumine-code/sofistik-data` directly. The root `sofistik.def` declares `SOF_VERSION`, `SOF_LANGUAGE` and `SOF_EDITION`; outside the workspace an adjacent definition applies. Without a declared year, the newest installed release under `C:\Program Files\SOFiSTiK` applies, then the newest bundled dataset. File headers and environment-package settings are ignored. Professional is the default edition. The exact selected release must be installed to read a CDB; an explicit source release overrides the project choice deliberately.
 
 ## Contributing
 
