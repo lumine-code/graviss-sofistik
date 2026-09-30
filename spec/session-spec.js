@@ -208,6 +208,176 @@ describe("SofistikSession", () => {
     await session.dispose();
     expect(database.dispose).toHaveBeenCalled();
   });
+
+  describe("result requests", () => {
+    let session, database, nodeReads, beamReads;
+
+    function deferredRead() {
+      let resolve, reject, started;
+      const promise = new Promise((accept, fail) => {
+        resolve = accept;
+        reject = fail;
+      });
+      const startedPromise = new Promise((accept) => {
+        started = accept;
+      });
+      return { promise, resolve, reject, started, startedPromise };
+    }
+
+    function nodes(loadCaseId) {
+      return {
+        count: 1,
+        columns: { nr: Int32Array.of(1), ux: Float32Array.of(loadCaseId) },
+      };
+    }
+
+    function countReads(name, loadCaseId) {
+      return database.read.calls
+        .allArgs()
+        .filter(([record, number]) => record === name && number === loadCaseId).length;
+    }
+
+    beforeEach(async () => {
+      nodeReads = new Map();
+      beamReads = new Map();
+      database = {
+        read: jasmine.createSpy("read").and.callFake((name, loadCaseId) => {
+          if (name === "system") {
+            return { count: 1, columns: { iprob: Int32Array.of(0), iachs: Int32Array.of(-3) } };
+          }
+          const controlled = (name === "nodeResults" ? nodeReads : beamReads).get(loadCaseId);
+          if (controlled) {
+            controlled.started();
+            return controlled.promise;
+          }
+          return name === "nodeResults" ? nodes(loadCaseId) : { count: 0, columns: {} };
+        }),
+        dispose: jasmine.createSpy("dispose"),
+      };
+      session = new SofistikSession("main.cdb", {
+        environment: { resolve: () => ({ version: "2026", edition: "educational" }) },
+        database,
+      });
+      await session.describe();
+    });
+
+    afterEach(async () => {
+      await session.dispose();
+    });
+
+    it("shares one Promise through both stages of a case and caches the completed result", async () => {
+      const nodeRead = deferredRead();
+      const beamRead = deferredRead();
+      nodeReads.set(1, nodeRead);
+      beamReads.set(1, beamRead);
+      const first = session.getResult({ loadCaseId: 1 });
+      expect(session.getResult({ loadCaseId: 1 })).toBe(first);
+      await nodeRead.startedPromise;
+      expect(countReads("nodeResults", 1)).toBe(1);
+      nodeRead.resolve(nodes(1));
+      await beamRead.startedPromise;
+      expect(session.getResult({ loadCaseId: 1 })).toBe(first);
+      beamRead.resolve({
+        count: 1,
+        columns: { nr: Int32Array.of(12), x: Float32Array.of(0.5) },
+      });
+      const result = await first;
+      expect(result.elements[0].id).toBe("beam-12");
+      expect(await session.getResult({ loadCaseId: 1 })).toBe(result);
+      expect(countReads("nodeResults", 1)).toBe(1);
+      expect(countReads("beamForces", 1)).toBe(1);
+      expect(session.pendingResults.size).toBe(0);
+    });
+
+    it("keeps the latest requested case when an earlier read finishes last", async () => {
+      const earlier = deferredRead();
+      const later = deferredRead();
+      nodeReads.set(1, earlier);
+      nodeReads.set(2, later);
+      const first = session.getResult({ loadCaseId: 1 });
+      const second = session.getResult({ loadCaseId: 2 });
+      await Promise.all([earlier.startedPromise, later.startedPromise]);
+      later.resolve(nodes(2));
+      const latest = await second;
+      earlier.resolve(nodes(1));
+      expect((await first).loadCaseId).toBe(1);
+      expect(session.lastResult).toBe(latest);
+      expect(await session.getResult({ loadCaseId: 2 })).toBe(latest);
+      expect(countReads("nodeResults", 2)).toBe(1);
+    });
+
+    it("makes a repeated pending case the latest request without duplicating its read", async () => {
+      const earlier = deferredRead();
+      const later = deferredRead();
+      nodeReads.set(1, earlier);
+      nodeReads.set(2, later);
+      const first = session.getResult({ loadCaseId: 1 });
+      const second = session.getResult({ loadCaseId: 2 });
+      expect(session.getResult({ loadCaseId: 1 })).toBe(first);
+      earlier.resolve(nodes(1));
+      const latest = await first;
+      later.resolve(nodes(2));
+      await second;
+      expect(session.lastResult).toBe(latest);
+      expect(countReads("nodeResults", 1)).toBe(1);
+    });
+
+    it("respects a cached case selected again while another case is reading", async () => {
+      const cached = await session.getResult({ loadCaseId: 1 });
+      const later = deferredRead();
+      nodeReads.set(2, later);
+      const second = session.getResult({ loadCaseId: 2 });
+      expect(await session.getResult({ loadCaseId: 1 })).toBe(cached);
+      later.resolve(nodes(2));
+      await second;
+      expect(session.lastResult).toBe(cached);
+    });
+
+    for (const [name, reads] of [
+      ["nodeResults", () => nodeReads],
+      ["beamForces", () => beamReads],
+    ]) {
+      it(`retries a rejected ${name} read and keeps only the last successful result`, async () => {
+        const cached = await session.getResult({ loadCaseId: 1 });
+        const failed = deferredRead();
+        reads().set(2, failed);
+        const first = session.getResult({ loadCaseId: 2 });
+        const duplicate = session.getResult({ loadCaseId: 2 });
+        expect(duplicate).toBe(first);
+        const rejection = expectAsync(first).toBeRejectedWithError("CDB read failed");
+        await failed.startedPromise;
+        failed.reject(new Error("CDB read failed"));
+        await rejection;
+        expect(session.lastResult).toBe(cached);
+        expect(session.pendingResults.size).toBe(0);
+        reads().delete(2);
+        const retried = await session.getResult({ loadCaseId: 2 });
+        expect(session.lastResult).toBe(retried);
+        expect(countReads(name, 2)).toBe(2);
+        await session.getResult({ loadCaseId: 1 });
+        expect(countReads("nodeResults", 1)).toBe(2);
+      });
+
+      it(`does not retain a ${name} read completed after disposal`, async () => {
+        await session.getResult({ loadCaseId: 1 });
+        const pending = deferredRead();
+        reads().set(2, pending);
+        const result = session.getResult({ loadCaseId: 2 });
+        const rejection = expectAsync(result).toBeRejectedWithError(/session is closed/);
+        await pending.startedPromise;
+        await session.dispose();
+        pending.resolve(name === "nodeResults" ? nodes(2) : { count: 0, columns: {} });
+        await rejection;
+        expect(session.lastResult).toBeNull();
+        expect(session.pendingResults.size).toBe(0);
+        if (name === "nodeResults") expect(countReads("beamForces", 2)).toBe(0);
+        await expectAsync(session.getResult({ loadCaseId: 2 })).toBeRejectedWithError(
+          /session is closed/,
+        );
+        expect(database.dispose).toHaveBeenCalledTimes(1);
+      });
+    }
+  });
 });
 
 describe("SofistikSourceProvider", () => {
