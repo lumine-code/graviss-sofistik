@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { SofistikEnvironmentResolver } = require("@lumine-code/sofistik-env");
+const { SofistikContextResolver } = require("@lumine-code/sofistik-context");
 
 describe("Graviss SOFiSTiK adjacent file context", () => {
   let temporaryRoot, previousProjectPaths, session, mainModule;
@@ -55,7 +55,7 @@ describe("Graviss SOFiSTiK adjacent file context", () => {
     fs.writeFileSync(viewPath, JSON.stringify(document));
     lumine.project.setPaths([projectPath, externalPath]);
 
-    const resolver = new SofistikEnvironmentResolver({ root: installationRoot });
+    const resolver = new SofistikContextResolver({ root: installationRoot });
     const resolve = spyOn(resolver, "resolve").and.callThrough();
     mainModule.environment.resolver = resolver;
     session = mainModule.provideGravissSource().createSession({
@@ -112,7 +112,7 @@ describe("Graviss SOFiSTiK adjacent file context", () => {
     const viewPath = path.join(viewDirectory, "model.grv");
     fs.writeFileSync(path.join(viewDirectory, "model.cdb"), "");
     lumine.project.setPaths([projectPath]);
-    mainModule.environment.resolver = new SofistikEnvironmentResolver({ root: installationRoot });
+    mainModule.environment.resolver = new SofistikContextResolver({ root: installationRoot });
     session = mainModule.provideGravissSource().createSession({
       filePath: viewPath,
       viewDocument: { getData: () => ({ title: "Nested Model" }) },

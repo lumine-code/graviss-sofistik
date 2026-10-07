@@ -38,10 +38,10 @@ describe("graviss-sofistik package conventions", () => {
       "background-tips.provider",
     ]);
     expect(manifest.consumedServices).toBeUndefined();
-    expect(manifest.dependencies["@lumine-code/sofistik-env"]).toMatch(
-      /^github:lumine-code\/sofistik-env#[0-9a-f]{40}$/,
+    expect(manifest.dependencies["@lumine-code/sofistik-context"]).toMatch(
+      /^github:lumine-code\/sofistik-context#[0-9a-f]{40}$/,
     );
-    expect(manifest.dependencies["@lumine-code/sofistik-data"]).toBeUndefined();
+    expect(manifest.dependencies["@lumine-code/sofistik-schema"]).toBeUndefined();
   });
 
   it("ships a cross-platform CI definition", () => {
