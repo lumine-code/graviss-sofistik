@@ -29,7 +29,8 @@
     "test": "lumine --test spec",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:node": "jasmine --config=spec/support/jasmine.node.json"
   },
   "providedServices": {
     "graviss.source": {
@@ -45,8 +46,8 @@
     }
   },
   "dependencies": {
-    "@lumine-code/sofistik-env": "github:lumine-code/sofistik-env#7d14bea69540f905b9538cfb2fa5a191da3ffcea",
-    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#68ed7b690a2ecc000b45448df1f648bff3f6e05e"
+    "@lumine-code/sofistik-env": "github:lumine-code/sofistik-env#6c99dcc9f30c513ff2e914c96d102e7ca30b2683",
+    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#e73cb20240347532b3a81e6fa94958b6f0a63d5f"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -54,9 +55,13 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-n": "^18.4.0",
     "globals": "^17.12.0",
+    "jasmine": "^7.0.0",
     "prettier": "^3.9.9"
   },
   "allowScripts": {
-    "github:lumine-code/sofistik-reader#68ed7b690a2ecc000b45448df1f648bff3f6e05e": true
-  }
+    "github:lumine-code/sofistik-reader#e73cb20240347532b3a81e6fa94958b6f0a63d5f": true
+  },
+  "specPackages": [
+    "graviss"
+  ]
 }

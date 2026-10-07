@@ -462,3 +462,31 @@ describe("SofistikSourceProvider", () => {
     expect(provider.resolveSource({ source: "model.inp" }, viewPath)).toBeNull();
   });
 });
+
+describe("session disposal during description", () => {
+  it("does not complete description after its native session is disposed", async () => {
+    let resolveSystem, started;
+    const entered = new Promise((resolve) => {
+      started = resolve;
+    });
+    const database = {
+      read: () => {
+        started();
+        return new Promise((resolve) => {
+          resolveSystem = resolve;
+        });
+      },
+      dispose: jasmine.createSpy("dispose"),
+    };
+    const session = new SofistikSession("model.cdb", {
+      database,
+      environment: { resolve: () => ({ version: "2026", edition: "professional" }) },
+    });
+    const describe = session.describe();
+    await entered;
+    await session.dispose();
+    resolveSystem({ count: 1, columns: { iprob: Int32Array.of(0), iachs: Int32Array.of(3) } });
+    await expectAsync(describe).toBeRejectedWithError(/session is closed/);
+    expect(session.described).toBe(false);
+  });
+});

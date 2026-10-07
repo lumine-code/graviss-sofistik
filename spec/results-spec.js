@@ -1,4 +1,4 @@
-const { readLoadCases } = require("../lib/results");
+const { readLoadCases } = require("../lib/results/load-cases");
 
 describe("SOFiSTiK results", () => {
   it("lists solved static cases and eigenmode records, not load definitions", async () => {
@@ -68,6 +68,22 @@ describe("SOFiSTiK results", () => {
     expect(reads).toEqual([
       ["loadCase", 101],
       ["loadCase", 10101],
+    ]);
+  });
+});
+
+describe("solved superpositions", () => {
+  it("lists the superposition variant returned under the load-case key", async () => {
+    const database = {
+      keys: async () => Int32Array.of(201),
+      read: async () => ({
+        count: 0,
+        columns: {},
+        superposition: { count: 1, columns: { kind: Int32Array.of(2), rtex: ["Envelope"] } },
+      }),
+    };
+    expect(await readLoadCases(database)).toEqual([
+      { id: 201, title: "Envelope", kind: "superposition", hasResults: true },
     ]);
   });
 });

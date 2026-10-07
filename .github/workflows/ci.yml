@@ -38,6 +38,8 @@ jobs:
         run: git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"
       - name: Install dependencies
         run: npm ci --ignore-scripts
+      - name: Test pure projections and sessions
+        run: npm run test:node
       - name: Lint
         run: npm run lint
       - name: Check formatting
@@ -84,6 +86,9 @@ jobs:
       - name: Rebuild native modules for Electron
         working-directory: lumine
         run: npm run build
+      - name: Install declared spec packages
+        working-directory: lumine
+        run: node script/install-spec-packages.js --package ../graviss-sofistik --home "$RUNNER_TEMP/lumine-home" --github-env "$GITHUB_ENV"
       - name: Run the Jasmine spec suite
         working-directory: lumine
         timeout-minutes: 20

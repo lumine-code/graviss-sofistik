@@ -23,8 +23,15 @@ To install `graviss-sofistik` search for it in the Install pane of the Lumine se
 ## Services
 
 - `graviss.source`: provided to Graviss so it can discover and read SOFiSTiK CDB databases.
+- `background-tips.provider`: provided to show the model-opening capability in the empty workspace.
 
-Database sessions use `SofistikEnvironmentResolver` from `@lumine-code/sofistik-env` directly. Only the `sofistik.def` beside the owning `.grv` selects `SOF_VERSION`, `SOF_LANGUAGE` and `SOF_EDITION`, even when its referenced CDB is elsewhere. Workspace roots and parent directories are never searched. A session opened directly from a CDB uses the definition beside that database. Without an adjacent declared year, the newest installed release under `C:\Program Files\SOFiSTiK` applies; a native reader with no installed release refuses to open. File headers and environment-package settings are ignored. Professional is the default edition. The selected interface remains fixed until the session is reopened.
+Database sessions use `SofistikEnvironmentResolver` from `@lumine-code/sofistik-env` directly. Only the `sofistik.def` beside the owning `.grv` selects `SOF_VERSION`, `SOF_LANGUAGE` and `SOF_EDITION`, even when its referenced CDB is elsewhere. Workspace roots and parent directories are never searched. A session opened directly from a CDB uses the definition beside that database. Without an adjacent declared year, the newest installed release under `C:\Program Files\SOFiSTiK` applies; a native reader with no installed release refuses to open. File headers and environment-package settings are ignored. Professional is the default edition. The selected interface remains fixed until the session is reopened. Geometry and result reads use the reader's `variable-tail` policy: layouts come from installed release headers, and only documented optional tails are accepted. The adapter never requests an assumed prefix. Native transport and decoding failures propagate; only explicitly unavailable optional records are omitted. Unknown declared quantity codes fail SI conversion rather than being displayed with an unverified unit.
+
+## Development
+
+Geometry projection is separated into nodes, element topology, local frames, sections and filters; result projection separates load-case selection, nodal fields and beam stations. These modules map to the Graviss contract. CDB layout decoding, native ownership, identifier encodings, bit fields, group arithmetic and quantity conversion belong to `@lumine-code/sofistik-reader` and are consumed through its public API.
+
+`npm run test:node` runs the pure projection and session suites on every supported platform. `npm test` also exercises package activation and adjacent-file context in Lumine. Development CDB fixtures under ignored `.dev/` enable native integration checks when the matching SOFiSTiK interface is installed.
 
 ## Contributing
 

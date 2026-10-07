@@ -1,0 +1,11 @@
+{
+  "spec_dir": "spec",
+  "spec_files": [
+    "model-geometry-spec.js",
+    "results-spec.js",
+    "session-spec.js",
+    "package-style-spec.js"
+  ],
+  "helpers": [],
+  "env": { "stopSpecOnExpectationFailure": false, "random": false }
+}

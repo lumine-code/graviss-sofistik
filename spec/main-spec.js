@@ -1,7 +1,5 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { SofistikEnvironment } = require("../lib/environment");
-const { SofistikSession } = require("../lib/sofistik-session");
 
 // The development databases are read through the installed interface. They are
 // local integration fixtures rather than package assets, so register each test
@@ -17,6 +15,7 @@ const DLL_PATH = path.join(
 );
 
 function developmentEnvironment() {
+  const { SofistikEnvironment } = require("../lib/environment");
   return new SofistikEnvironment({
     resolver: {
       resolve: () => ({
@@ -31,6 +30,7 @@ function developmentEnvironment() {
 }
 
 function developmentSession(name) {
+  const { SofistikSession } = require("../lib/sofistik-session");
   const databasePath = path.resolve(__dirname, "..", ".dev", name);
   return new SofistikSession(databasePath, { environment: developmentEnvironment() });
 }
@@ -86,6 +86,27 @@ describe("graviss-sofistik package", () => {
         viewDocument: { getData: () => ({ title: "Model", source: "model.inp" }) },
       }),
     ).toBeNull();
+  });
+
+  it("replaces its service edge when the source package reactivates", async () => {
+    const hubPackage = await lumine.packages.activatePackage("graviss");
+    const hub = hubPackage.mainModule;
+    try {
+      const previous = main.provideGravissSource();
+      await conditionPromise(() => hub.sourceProviders.includes(previous));
+      await lumine.packages.deactivatePackage("graviss-sofistik");
+      expect(hub.sourceProviders.includes(previous)).toBe(false);
+      const current = await lumine.packages.activatePackage("graviss-sofistik");
+      main = current.mainModule;
+      const replacement = main.provideGravissSource();
+      expect(replacement).not.toBe(previous);
+      await conditionPromise(() => hub.sourceProviders.includes(replacement));
+      expect(hub.sourceProviders.filter(({ id }) => id === "graviss-sofistik")).toEqual([
+        replacement,
+      ]);
+    } finally {
+      await lumine.packages.deactivatePackage("graviss");
+    }
   });
 
   developmentIt(
@@ -152,7 +173,9 @@ describe("graviss-sofistik package", () => {
       try {
         await session.describe();
         const database = await session.getDatabase();
-        const raw = await database.read("secondaryGroups", 0x20205050, { partial: true });
+        const raw = await database.read("secondaryGroups", 0x20205050, {
+          decodePolicy: "variable-tail",
+        });
         expect(Array.from(raw.list.columns.id)).toEqual([200]);
         expect(Array.from(raw.list.columns.nr)).toEqual([210001, -213486]);
         const geometry = await session.getGeometry();

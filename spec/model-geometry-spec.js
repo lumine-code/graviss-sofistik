@@ -1,24 +1,22 @@
+const { buildGeometry } = require("../lib/model-geometry");
+const { groupOf } = require("@lumine-code/sofistik-reader");
+const { buildFilterTypes, readGroups, readSecondaryGroups } = require("../lib/geometry/filters");
+const { defaultLocalAxes, gravityVector } = require("../lib/geometry/frames");
 const {
-  buildFilterTypes,
-  buildGeometry,
-  groupOf,
-  readGroups,
-  readSecondaryGroups,
-  defaultLocalAxes,
   ineffectiveAreas,
-  gravityVector,
   platesShape,
   polygonShape,
+  readSection,
+  roundShape,
+} = require("../lib/geometry/sections");
+const {
   readAxialElements,
   readBeams,
-  readNodes,
   readCouplings,
   readQuads,
-  readSection,
   readSprings,
-  restraintsOf,
-  roundShape,
-} = require("../lib/model-geometry");
+} = require("../lib/geometry/elements");
+const { readNodes, restraintsOf } = require("../lib/geometry/nodes");
 
 // The reader answers in columns, so the fixtures here are columns too.
 function read(count, columns) {
@@ -759,14 +757,17 @@ describe("readSprings", () => {
 });
 
 describe("buildGeometry", () => {
-  it("builds the model without couplings when the reader knows none", async () => {
-    // The couplings record was named in the reader long after the others, so a
-    // reader pinned from before that refuses the read. The model is still the
-    // model without its couplings.
+  it("builds the model without an unavailable optional record", async () => {
+    // Only a declared unavailable record is optional; transport and decoding
+    // failures must remain visible to the caller.
     const empty = { count: 0, columns: {} };
     const database = {
       async read(name) {
-        if (name === "couplings") throw new Error('Unknown SOFiSTiK record "couplings".');
+        if (name === "couplings") {
+          const error = new Error("Unavailable coupling record");
+          error.code = "ERR_CDB_RECORD_UNAVAILABLE";
+          throw error;
+        }
         if (name === "nodes") {
           return {
             count: 1,
@@ -1119,4 +1120,23 @@ describe("calculated secondary-group lists", () => {
       ),
     ).toBeNull();
   });
+});
+
+describe("geometry read failures", () => {
+  for (const name of ["couplings", "groups", "secondaryGroups"]) {
+    it(`propagates ${name} corruption and transport failures`, async () => {
+      const empty = { count: 0, columns: {} };
+      const database = {
+        async read(kind) {
+          if (kind === name) throw new Error("Native decoding failed");
+          return empty;
+        },
+        async keys(kind) {
+          if (kind === name) throw new Error("Native decoding failed");
+          return [];
+        },
+      };
+      await expectAsync(buildGeometry(database)).toBeRejectedWithError("Native decoding failed");
+    });
+  }
 });
