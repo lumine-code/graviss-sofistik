@@ -1,4 +1,5 @@
 const { readLoadCases } = require("../lib/results/load-cases");
+const { readBeamStations } = require("../lib/results/beam-stations");
 
 describe("SOFiSTiK results", () => {
   it("lists solved static cases and eigenmode records, not load definitions", async () => {
@@ -85,5 +86,50 @@ describe("solved superpositions", () => {
     expect(await readLoadCases(database)).toEqual([
       { id: 201, title: "Envelope", kind: "superposition", hasResults: true },
     ]);
+  });
+});
+
+describe("beam deformation stations", () => {
+  it("leaves a force-only beam record without deformation stations", async () => {
+    const database = {
+      read: async () => ({
+        count: 2,
+        columns: {
+          element: Int32Array.of(110001, 110001),
+          x: Float32Array.of(0, 2),
+          n: Float32Array.of(-5, -5),
+        },
+      }),
+    };
+    expect(await readBeamStations(database, 302, (number) => `beam:${number}`)).toEqual([]);
+  });
+
+  it("keeps stored zero deformations and omits missing deformations when forms are mixed", async () => {
+    const database = {
+      read: async () => ({
+        count: 3,
+        fields: [
+          { name: "x", unit: 1001 },
+          { name: "ux", unit: 1003 },
+          { name: "phix", unit: 1004 },
+          { name: "phiw", unit: 1005 },
+        ],
+        recordLengths: Int32Array.of(40, 72, 72),
+        provenance: [{ length: 40, partial: { dropped: ["ux", "uy", "uz"] } }],
+        columns: {
+          element: Int32Array.of(110001, 110002, 110002),
+          x: Float32Array.of(0, 0, 2),
+          ux: Float32Array.of(0, 0, 0),
+          uy: Float32Array.of(0, 0, 1),
+          uz: Float32Array.of(0, 0, 0),
+        },
+      }),
+    };
+    const result = await readBeamStations(database, 302, (number) => `beam:${number}`);
+    expect(result.length).toBe(1);
+    expect(result[0].id).toBe("beam:110002");
+    expect(result[0].stations.length).toBe(2);
+    expect(result[0].stations[0].u).toEqual([0, 0, 0]);
+    expect(result[0].stations[1].u).toEqual([0, 1, 0]);
   });
 });

@@ -410,4 +410,50 @@ describe("graviss-sofistik package", () => {
       }
     },
   );
+
+  developmentIt(
+    "reads solid PROF contours, their generated openings and force-only load cases",
+    "main-5.cdb",
+    async () => {
+      const session = developmentSession("main-5.cdb");
+      const polygonArea = (points) =>
+        Math.abs(
+          points.reduce((sum, [y, z], index) => {
+            const [nextY, nextZ] = points[(index + 1) % points.length];
+            return sum + y * nextZ - nextY * z;
+          }, 0),
+        ) / 2;
+      try {
+        await session.describe();
+        const geometry = await session.getGeometry();
+        for (const [id, width, height] of [
+          [11, 0.16, 0.16],
+          [21, 0.16, 0.16],
+          [31, 0.14, 0.14],
+          [41, 0.16, 0.152],
+        ]) {
+          const section = geometry.sections.find((entry) => entry.id === id);
+          const shape = section.shape;
+          expect(shape.kind).toBe("polygon");
+          expect(shape.inferred).toBeUndefined();
+          expect(shape.parts).toBeUndefined();
+          expect(shape.holes?.length || 0).toBe(id === 41 ? 0 : 1);
+          const ys = shape.points.map(([y]) => y);
+          const zs = shape.points.map(([, z]) => z);
+          expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(width, 6);
+          expect(Math.max(...zs) - Math.min(...zs)).toBeCloseTo(height, 6);
+          const area =
+            polygonArea(shape.points) -
+            (shape.holes || []).reduce((sum, hole) => sum + polygonArea(hole), 0);
+          expect(area).toBeCloseTo(section.area, 8);
+        }
+        const result = await session.getResult({ loadCaseId: 302 });
+        expect(result.nodes.ids.length).toBeGreaterThan(0);
+        expect(result.extent).toBeGreaterThan(0);
+        expect(result.elements || []).toEqual([]);
+      } finally {
+        await session.dispose();
+      }
+    },
+  );
 });

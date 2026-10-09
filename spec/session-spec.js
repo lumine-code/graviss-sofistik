@@ -279,7 +279,17 @@ describe("SofistikSession", () => {
       expect(session.getResult({ loadCaseId: 1 })).toBe(first);
       beamRead.resolve({
         count: 1,
-        columns: { nr: Int32Array.of(12), x: Float32Array.of(0.5) },
+        columns: {
+          nr: Int32Array.of(12),
+          x: Float32Array.of(0.5),
+          ux: Float32Array.of(0),
+          uy: Float32Array.of(0),
+          uz: Float32Array.of(0),
+          phix: Float32Array.of(0),
+          phiy: Float32Array.of(0),
+          phiz: Float32Array.of(0),
+          phiw: Float32Array.of(0),
+        },
       });
       const result = await first;
       expect(result.elements[0].id).toBe("beam-12");

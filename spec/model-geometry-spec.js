@@ -132,7 +132,7 @@ describe("section shapes", () => {
 
   it("keeps every polygon of a composed section, and every point of each", () => {
     // IDP carries the polygon number above a flag byte. The flags are
-    // bookkeeping — effectiveness, fillets, generation, the closing vertex —
+    // bookkeeping — effectiveness, generation, the closing vertex —
     // and none of them moves a point. Section 11 of the field model is the
     // shape of the bug this pins: a plate whose points carry effectiveness
     // bits, a deck of another material, and the web between them. Dropping
@@ -217,6 +217,94 @@ describe("section shapes", () => {
     expect("parts" in polygonShape(columns([1, 100]))).toBe(false);
     // With nothing drawn they are all there is, and better than nothing.
     expect(polygonShape(columns([100])).points.length).toBe(3);
+  });
+
+  it("keeps a profile's generated opening and excludes its zero-material input polygon", () => {
+    // main-5.cdb stores the RHS outline as polygon 2, its input void as
+    // zero-material polygon 3, and the resulting inner boundary as polygon 100.
+    const shape = polygonShape(
+      read(12, {
+        idp: Int32Array.from([512, 512, 512, 640, 768, 768, 768, 896, 25601, 25601, 25601, 25729]),
+        mno: Int32Array.from([1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]),
+        y: Float32Array.from([0, 4, 0, 0, 1, 2, 1, 1, 1, 2, 1, 1]),
+        z: Float32Array.from([0, 0, 4, 0, 1, 1, 2, 1, 1, 1, 2, 1]),
+      }),
+    );
+    expect(shape).toEqual({
+      kind: "polygon",
+      points: [
+        [0, 0],
+        [4, 0],
+        [0, 4],
+      ],
+      holes: [
+        [
+          [1, 1],
+          [2, 1],
+          [1, 2],
+        ],
+      ],
+    });
+  });
+
+  it("draws the tessellated fillet without either tangent intersection point", () => {
+    // AQUA writes the theoretical sharp corner before and after the fillet.
+    // The second copy is generated, but both still carry TP (32) and neither
+    // lies on the section's boundary.
+    const shape = polygonShape(
+      read(10, {
+        idp: Int32Array.from([512, 544, 576, 576, 576, 608, 512, 512, 512, 640]),
+        y: Float32Array.from([0, -1, -0.75, -0.9, -1, -1, -1, -1, 1, 0]),
+        z: Float32Array.from([1, 1, 1, 0.9, 0.75, 1, 0.75, -1, -1, 1]),
+      }),
+    );
+    expect(shape.points).toEqual([
+      [0, 1],
+      [-0.75, 1],
+      [Math.fround(-0.9), Math.fround(0.9)],
+      [-1, 0.75],
+      [-1, -1],
+      [1, -1],
+    ]);
+  });
+
+  it("uses a generated outer contour when only an inner boundary was drawn", () => {
+    const shape = polygonShape(
+      read(6, {
+        idp: Int32Array.from([257, 257, 257, 25600, 25600, 25600]),
+        y: Float32Array.from([1, 2, 1, 0, 4, 0]),
+        z: Float32Array.from([1, 1, 2, 0, 0, 4]),
+      }),
+    );
+    expect(shape.points).toEqual([
+      [0, 0],
+      [4, 0],
+      [0, 4],
+    ]);
+    expect(shape.holes).toEqual([
+      [
+        [1, 1],
+        [2, 1],
+        [1, 2],
+      ],
+    ]);
+  });
+
+  it("does not cut a drawn opening twice when generated points repeat its boundary", () => {
+    const shape = polygonShape(
+      read(11, {
+        idp: Int32Array.from([256, 256, 256, 513, 513, 513, 25601, 25601, 25601, 25601, 25601]),
+        y: Float32Array.from([0, 4, 0, 1, 2, 1, 1, 1, 1.5, 2, 1.5]),
+        z: Float32Array.from([0, 0, 4, 1, 1, 2, 1, 2, 1.5, 1, 1]),
+      }),
+    );
+    expect(shape.holes).toEqual([
+      [
+        [1, 1],
+        [2, 1],
+        [1, 2],
+      ],
+    ]);
   });
 
   it("reads a thin-walled section as the plates it is welded from", () => {
