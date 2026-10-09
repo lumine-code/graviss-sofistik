@@ -881,6 +881,21 @@ describe("buildGeometry", () => {
 describe("readCouplings", () => {
   const numbers = new Set([1, 2, 3]);
 
+  it("preserves the packed constraint group independently of node and element numbering", () => {
+    const elements = readCouplings(
+      read(2, {
+        ktl: Int32Array.of(600021, 600022),
+        nr: Int32Array.of(1, 1),
+        kr: Int32Array.of(2, 0, 2, 0),
+      }),
+      numbers,
+    );
+    const types = buildFilterTypes(elements, [], 1000);
+    expect(elements.length).toBe(1);
+    expect(elements[0].filterValues.group).toBe(60);
+    expect(types.find(({ id }) => id === "group").kinds).toEqual(["coupling"]);
+  });
+
   it("reads a constrained node and the node it is held to", () => {
     const elements = readCouplings(
       read(5, {

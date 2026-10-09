@@ -3,6 +3,7 @@
   "spec_files": [
     "model-geometry-spec.js",
     "results-spec.js",
+    "active-elements-spec.js",
     "session-spec.js",
     "package-style-spec.js"
   ],

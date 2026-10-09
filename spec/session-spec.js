@@ -245,6 +245,7 @@ describe("SofistikSession", () => {
           if (name === "system") {
             return { count: 1, columns: { iprob: Int32Array.of(0), iachs: Int32Array.of(-3) } };
           }
+          if (name === "loadCaseGroups") return { count: 0, columns: {} };
           const controlled = (name === "nodeResults" ? nodeReads : beamReads).get(loadCaseId);
           if (controlled) {
             controlled.started();
@@ -297,6 +298,39 @@ describe("SofistikSession", () => {
       expect(countReads("nodeResults", 1)).toBe(1);
       expect(countReads("beamForces", 1)).toBe(1);
       expect(session.pendingResults.size).toBe(0);
+    });
+
+    it("shares the geometry snapshot across case masks and restores active groups in another case", async () => {
+      const geometry = {
+        elements: [
+          { id: "beam-110001", filterValues: { group: 11 } },
+          { id: "quad-510001", filterValues: { group: 51 } },
+          { id: "coupling-12-13", filterValues: { group: 60 } },
+        ],
+      };
+      const geometryRead = spyOn(session, "readGeometry").and.resolveTo(geometry);
+      database.read.and.callFake(async (name, loadCaseId) => {
+        if (name === "nodeResults") return nodes(loadCaseId);
+        if (name === "loadCaseGroups")
+          return {
+            count: 3,
+            columns: {
+              ng: Int32Array.of(11, 51, 60),
+              typ: Int32Array.of(0, 0, 0),
+              inf: Int32Array.of(7, loadCaseId === 302 ? 7 : 1, loadCaseId === 302 ? 7 : 1),
+            },
+          };
+        return { count: 0, columns: {} };
+      });
+      // Requesting a result before geometry still produces a complete mask.
+      const partial = await session.getResult({ loadCaseId: 4011 });
+      expect(partial.activeElementIds).toEqual(["beam-110001"]);
+      const complete = await session.getResult({ loadCaseId: 302 });
+      expect(complete.activeElementIds).toEqual(geometry.elements.map(({ id }) => id));
+      expect(geometryRead).toHaveBeenCalledTimes(1);
+      expect((await session.getResult({ loadCaseId: 4011 })).activeElementIds).toEqual(
+        partial.activeElementIds,
+      );
     });
 
     it("keeps the latest requested case when an earlier read finishes last", async () => {

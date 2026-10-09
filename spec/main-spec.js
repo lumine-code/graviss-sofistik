@@ -229,10 +229,10 @@ describe("graviss-sofistik package", () => {
       const beam = geometry.elements.find(({ id }) => id === "beam-110001");
       expect(beam.number).toBe(110001);
       expect(beam.filterValues.group).toBe(11);
-      // A coupling has no element number of its own, so it is in no group.
+      // A coupling has no element number; its constraint record stores its group.
       const coupling = geometry.elements.find(({ kind }) => kind === "coupling");
       expect(coupling?.number).toBeUndefined();
-      expect(coupling?.filterValues?.group).toBeUndefined();
+      expect(coupling?.filterValues?.group).toBe(80);
 
       const loadCases = await session.getLoadCases();
       expect(loadCases.length).toBeGreaterThan(3);
@@ -451,6 +451,40 @@ describe("graviss-sofistik package", () => {
         expect(result.nodes.ids.length).toBeGreaterThan(0);
         expect(result.extent).toBeGreaterThan(0);
         expect(result.elements || []).toEqual([]);
+      } finally {
+        await session.dispose();
+      }
+    },
+  );
+
+  developmentIt(
+    "excludes inactive groups and their couplings in each analysed system",
+    "main-5.cdb",
+    async () => {
+      const session = developmentSession("main-5.cdb");
+      try {
+        await session.describe();
+        const geometry = await session.getGeometry();
+        const inactiveGroups = new Set([51, 55, 56, 60, 61, 62, 71, 72, 90, 91, 92, 93]);
+        expect(geometry.elements.length).toBe(2244);
+        expect(
+          geometry.elements.filter((element) => element.filterValues?.group === 60).length,
+        ).toBe(99);
+        for (const loadCaseId of [4011, 4012, 5011, 5012]) {
+          const result = await session.getResult({ loadCaseId });
+          const active = new Set(result.activeElementIds);
+          expect(active.size).toBe(855);
+          const counts = {};
+          for (const element of geometry.elements) {
+            expect(active.has(element.id)).toBe(!inactiveGroups.has(element.filterValues?.group));
+            if (active.has(element.id)) counts[element.kind] = (counts[element.kind] || 0) + 1;
+          }
+          expect(counts).toEqual({ beam: 798, spring: 31, coupling: 26 });
+        }
+        const complete = await session.getResult({ loadCaseId: 302 });
+        expect(new Set(complete.activeElementIds).size).toBe(geometry.elements.length);
+        const partialAgain = await session.getResult({ loadCaseId: 4011 });
+        expect(partialAgain.activeElementIds.length).toBe(855);
       } finally {
         await session.dispose();
       }
