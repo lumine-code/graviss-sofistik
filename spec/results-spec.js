@@ -1,5 +1,6 @@
 const { readLoadCases } = require("../lib/results/load-cases");
 const { readBeamStations } = require("../lib/results/beam-stations");
+const { readBeamForces } = require("../lib/results/beam-forces");
 
 describe("SOFiSTiK results", () => {
   it("lists solved static cases and eigenmode records, not load definitions", async () => {
@@ -86,6 +87,128 @@ describe("solved superpositions", () => {
     expect(await readLoadCases(database)).toEqual([
       { id: 201, title: "Envelope", kind: "superposition", hasResults: true },
     ]);
+  });
+
+  it("includes force-only cases and lists a case with both fields only once", async () => {
+    const database = {
+      keys: async (name) =>
+        ({
+          loadCase: Int32Array.of(101, 201, 301, 401),
+          nodeResults: Int32Array.of(101, 301),
+          beamForces: Int32Array.of(201, 301),
+        })[name],
+      read: async (_name, number) => ({
+        count: 1,
+        columns: { kind: Int32Array.of(0), rtex: [`Case ${number}`] },
+      }),
+    };
+    expect((await readLoadCases(database)).map(({ id }) => id)).toEqual([101, 201, 301]);
+  });
+});
+
+describe("beam internal force stations", () => {
+  function forceRead() {
+    return {
+      count: 4,
+      fields: [
+        { name: "x", unit: 1001 },
+        { name: "n", unit: 1101 },
+        { name: "vy", unit: 1102 },
+        { name: "vz", unit: 1102 },
+        { name: "mt", unit: 1103 },
+        { name: "my", unit: 1104 },
+        { name: "mz", unit: 1104 },
+      ],
+      // The short record lacks the entire deformation tail. A continuation
+      // station has nr = 0 but the reader resolves its owning element.
+      recordLengths: Int32Array.of(40, 40, 72, 72),
+      provenance: [{ length: 40, partial: { dropped: ["ux", "uy", "uz"] } }],
+      columns: {
+        nr: Int32Array.of(12, 0, 0, 0),
+        element: Int32Array.of(12, 12, 12, 12),
+        x: Float32Array.of(0, 2, 2, 4),
+        n: Float32Array.of(-4, -4, -4, -4),
+        vy: Float32Array.of(1, 1, -3, -3),
+        vz: Float32Array.of(2, 2, -2, -2),
+        mt: Float32Array.of(-0.25, -0.25, 0.5, 0.5),
+        my: Float32Array.of(0, 4, 4, 0),
+        mz: Float32Array.of(0, -2, -2, 4),
+      },
+    };
+  }
+
+  const elementIdOf = (number) => (number > 0 ? `beam-${number}` : null);
+
+  it("maps short and complete records to six signed SI components and preserves force jumps", async () => {
+    const read = forceRead();
+    const database = { read: jasmine.createSpy("read").and.resolveTo(read) };
+    const result = await readBeamForces(database, 302, elementIdOf);
+    expect(database.read).toHaveBeenCalledOnceWith("beamForces", 302, {
+      decodePolicy: "variable-tail",
+    });
+    expect(result.components).toEqual(["N", "Vy", "Vz", "Mt", "My", "Mz"]);
+    expect(result.elements).toEqual([
+      {
+        id: "beam-12",
+        stations: [
+          { x: 0, values: [-4000, 1000, 2000, -250, 0, 0] },
+          { x: 2, values: [-4000, 1000, 2000, -250, 4000, -2000] },
+          { x: 2, values: [-4000, -3000, -2000, 500, 4000, -2000] },
+          { x: 4, values: [-4000, -3000, -2000, 500, 0, 4000] },
+        ],
+      },
+    ]);
+    expect(read.columns.ux).toBeUndefined();
+  });
+
+  it("sorts stations independently within each member without merging duplicate abscissae", async () => {
+    const read = forceRead();
+    read.columns.element = Int32Array.of(12, 13, 12, 12);
+    read.columns.x = Float32Array.of(4, 1, 2, 2);
+    const result = await readBeamForces({ read: async () => read }, 302, elementIdOf);
+    expect(result.elements.map(({ id }) => id)).toEqual(["beam-12", "beam-13"]);
+    expect(result.elements[0].stations.map(({ x }) => x)).toEqual([2, 2, 4]);
+    expect(result.elements[0].stations.map(({ values }) => values[4])).toEqual([4000, 0, 0]);
+  });
+
+  it("converts the abscissa using its own quantity metadata", async () => {
+    const read = forceRead();
+    read.fields[0].unit = 1000;
+    const result = await readBeamForces({ read: async () => read }, 302, elementIdOf);
+    expect(result.elements[0].stations.at(-1).x).toBe(4000);
+  });
+
+  it("returns an empty field for a case without beam records", async () => {
+    const result = await readBeamForces(
+      { read: async () => ({ count: 0, columns: {} }) },
+      302,
+      elementIdOf,
+    );
+    expect(result.components).toEqual(["N", "Vy", "Vz", "Mt", "My", "Mz"]);
+    expect(result.elements).toEqual([]);
+  });
+
+  for (const name of ["x", "n", "vy", "vz", "mt", "my", "mz"]) {
+    it(`refuses a missing mandatory ${name} field instead of returning zero`, async () => {
+      const read = forceRead();
+      delete read.columns[name];
+      await expectAsync(
+        readBeamForces({ read: async () => read }, 302, elementIdOf),
+      ).toBeRejectedWithError(new RegExp(`complete ${name} column`));
+    });
+  }
+
+  it("refuses non-finite forces and unknown units", async () => {
+    const read = forceRead();
+    read.columns.my[1] = NaN;
+    await expectAsync(
+      readBeamForces({ read: async () => read }, 302, elementIdOf),
+    ).toBeRejectedWithError(/non-finite/);
+    read.columns.my[1] = 0;
+    read.fields.find(({ name }) => name === "my").unit = 99999;
+    await expectAsync(
+      readBeamForces({ read: async () => read }, 302, elementIdOf),
+    ).toBeRejectedWithError(/No SI conversion/);
   });
 });
 
