@@ -3,6 +3,33 @@ const { coordinateSystemMetadata, problemTypeOf } = require("../lib/coordinate-s
 const { SofistikSession } = require("../lib/sofistik-session");
 const { SofistikSourceProvider } = require("../lib/source-provider");
 
+const MEMBER_COMPONENT_IDS = [
+  "N",
+  "Vy",
+  "Vz",
+  "Mt",
+  "My",
+  "Mz",
+  "Mb",
+  "Mt1",
+  "Mt2",
+  "Mt3",
+  "ux",
+  "uy",
+  "uz",
+  "phix",
+  "phiy",
+  "phiz",
+  "phiw",
+  "pa",
+  "pt",
+  "pty",
+  "ptz",
+  "thrust:y",
+  "thrust:z",
+  "thrust:total",
+];
+
 describe("SofistikSession", () => {
   it("maps every CDB gravity direction to the opposite model up axis", () => {
     expect([-1, 1, -2, 2, -3, 3].map((axis) => coordinateSystemMetadata(axis))).toEqual([
@@ -341,11 +368,21 @@ describe("SofistikSession", () => {
 
     it("reads beam forces without nodal results and separates kinds in the completed cache", async () => {
       const forces = await session.getResult({ loadCaseId: 1, kind: "memberDiagram" });
-      expect(forces).toEqual({
+      expect({ ...forces, components: forces.components.map(({ id }) => id) }).toEqual({
         kind: "memberDiagram",
         loadCaseId: 1,
-        components: jasmine.any(Array),
+        components: MEMBER_COMPONENT_IDS,
         elements: [],
+      });
+      expect(forces.components[0]).toEqual({
+        id: "N",
+        title: "N · Axial force",
+        group: "Internal forces",
+        unit: "N",
+        displayUnit: "kN",
+        displayFactor: 0.001,
+        plane: "y",
+        directionSign: 1,
       });
       expect(countReads("nodeResults", 1)).toBe(0);
       expect(await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).toBe(forces);
@@ -397,49 +434,43 @@ describe("SofistikSession", () => {
           mz: Float32Array.of(0, 0),
         },
       });
-      expect(await session.getResult({ loadCaseId: 302, kind: "memberDiagram" })).toEqual({
+      const result = await session.getResult({ loadCaseId: 302, kind: "memberDiagram" });
+      expect({ ...result, components: result.components.map(({ id }) => id) }).toEqual({
         kind: "memberDiagram",
         loadCaseId: 302,
-        components: jasmine.any(Array),
+        components: MEMBER_COMPONENT_IDS,
         elements: [
           {
             id: "beam-12",
             stations: [
               {
                 x: 0,
-                values: [
-                  -5000,
-                  0,
-                  1000,
-                  0,
-                  -2000,
-                  0,
-                  ...Array(15).fill(null),
-                  jasmine.anything(),
-                  jasmine.anything(),
-                  jasmine.anything(),
-                ],
+                values: [-5000, 0, 1000, 0, -2000, 0, ...Array(15).fill(null), 0, 0.4, 0.4],
               },
               {
                 x: 2,
-                values: [
-                  -5000,
-                  0,
-                  1000,
-                  0,
-                  0,
-                  0,
-                  ...Array(15).fill(null),
-                  jasmine.anything(),
-                  jasmine.anything(),
-                  jasmine.anything(),
-                ],
+                values: [-5000, 0, 1000, 0, 0, 0, ...Array(15).fill(null), 0, -0, 0],
               },
             ],
           },
         ],
       });
       expect(countReads("nodeResults", 302)).toBe(0);
+    });
+
+    it("refuses influence coefficients for both displacement and member views", async () => {
+      database.read.and.callFake(async (name) =>
+        name === "loadCase"
+          ? { count: 1, columns: { kind: Int32Array.of(3) } }
+          : { count: 0, columns: {} },
+      );
+      for (const kind of ["displacement", "memberDiagram"]) {
+        await expectAsync(session.getResult({ loadCaseId: 8, kind })).toBeRejectedWithError(
+          /influence coefficients/,
+        );
+      }
+      expect(countReads("nodeResults", 8)).toBe(0);
+      expect(countReads("beamForces", 8)).toBe(0);
     });
 
     it("keeps overlapping kinds independent and caches the most recently requested kind", async () => {

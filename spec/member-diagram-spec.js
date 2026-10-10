@@ -125,6 +125,18 @@ describe("member quantity projection", () => {
     expect(field(result, "beamOnly:N")).toEqual([-3000, -3000]);
   });
 
+  it("exposes enhanced nodal-section modes separately when their documented tail exists", async () => {
+    const read = forces();
+    read.columns.alph_x = Float32Array.of(0.25, 0.5);
+    read.columns.beta_y = Float32Array.of(0.125, 0.25);
+    read.fields.push({ name: "alph_x", unit: 1003 }, { name: "beta_y", unit: 1004 });
+    const result = await readMemberDiagram(databaseOf({ beamForces: read }), 1, elementIdOf);
+    expect(field(result, "eas:alph_x")).toEqual([0.25, 0.5]);
+    expect(field(result, "eas:beta_y")).toEqual([0.125, 0.25]);
+    expect(field(result, "ux")).toEqual([0, 0.25]);
+    expect(result.components.find(({ id }) => id === "eas:beta_y").unit).toBe("rad");
+  });
+
   it("qualifies stress curves by material and preserves their separate station grids", async () => {
     const stresses = {
       count: 4,
