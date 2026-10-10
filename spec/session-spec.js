@@ -381,7 +381,7 @@ describe("SofistikSession", () => {
         unit: "N",
         displayUnit: "kN",
         displayFactor: 0.001,
-        plane: "y",
+        plane: "z",
         directionSign: 1,
       });
       expect(countReads("nodeResults", 1)).toBe(0);

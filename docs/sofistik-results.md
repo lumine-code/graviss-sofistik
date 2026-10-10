@@ -2,6 +2,8 @@
 
 Graviss reads scalar diagrams from the documented SOFiSTiK DATEN records listed below. The source provides the quantity names, groups, physical units, display conversion and drawing direction; the viewer does not contain a fixed SOFiSTiK quantity list.
 
+Quantities without a natural transverse drawing direction default to local z, including axial force, torsion, bimoments, scalar stresses, stiffnesses and strains. Directional components retain their physical planes: Vy and uy use local y, Vz and uz use local z, and bending quantities keep their bending planes and tension-side convention. An explicit diagram plane in the graphic overrides these defaults.
+
 ## Available results
 
 | DATEN key        | Quantity family                         | Projection                                                                                                                                                                                                                                                                                                                             |
