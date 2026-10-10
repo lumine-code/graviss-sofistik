@@ -113,7 +113,7 @@ describe("SofistikSession", () => {
       displacement: true,
       loadCases: true,
       beamStations: true,
-      beamForces: true,
+      memberDiagram: true,
     });
     expect(description.capabilities.filterTypes).toBe(true);
     expect(typeof session.getLoadCases).toBe("function");
@@ -247,6 +247,7 @@ describe("SofistikSession", () => {
             return { count: 1, columns: { iprob: Int32Array.of(0), iachs: Int32Array.of(-3) } };
           }
           if (name === "loadCaseGroups") return { count: 0, columns: {} };
+          if (!["nodeResults", "beamForces"].includes(name)) return { count: 0, columns: {} };
           const controlled = (name === "nodeResults" ? nodeReads : beamReads).get(loadCaseId);
           if (controlled) {
             controlled.started();
@@ -332,31 +333,43 @@ describe("SofistikSession", () => {
       expect((await session.getResult({ loadCaseId: 4011 })).activeElementIds).toEqual(
         partial.activeElementIds,
       );
-      const forceResult = await session.getResult({ loadCaseId: 4011, kind: "beamForces" });
+      const forceResult = await session.getResult({ loadCaseId: 4011, kind: "memberDiagram" });
       expect(forceResult.activeElementIds).toEqual(partial.activeElementIds);
       expect(forceResult.nodes).toBeUndefined();
       expect(geometryRead).toHaveBeenCalledTimes(1);
     });
 
     it("reads beam forces without nodal results and separates kinds in the completed cache", async () => {
-      const forces = await session.getResult({ loadCaseId: 1, kind: "beamForces" });
+      const forces = await session.getResult({ loadCaseId: 1, kind: "memberDiagram" });
       expect(forces).toEqual({
-        kind: "beamForces",
+        kind: "memberDiagram",
         loadCaseId: 1,
-        components: ["N", "Vy", "Vz", "Mt", "My", "Mz"],
+        components: jasmine.any(Array),
         elements: [],
       });
       expect(countReads("nodeResults", 1)).toBe(0);
-      expect(await session.getResult({ loadCaseId: 1, kind: "beamForces" })).toBe(forces);
+      expect(await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).toBe(forces);
       const displacement = await session.getResult({ loadCaseId: 1, kind: "displacement" });
       expect(displacement.kind).toBe("displacement");
       expect(displacement.nodes.ids).toEqual([1]);
       expect(countReads("nodeResults", 1)).toBe(1);
       expect(countReads("beamForces", 1)).toBe(2);
-      expect((await session.getResult({ loadCaseId: 1, kind: "beamForces" })).kind).toBe(
-        "beamForces",
+      expect((await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).kind).toBe(
+        "memberDiagram",
       );
       expect(countReads("beamForces", 1)).toBe(3);
+    });
+
+    it("reports a case without nodal or member deformations as unavailable", async () => {
+      const read = deferredRead();
+      nodeReads.set(7, read);
+      read.resolve({ count: 0, columns: {} });
+      await expectAsync(
+        session.getResult({ loadCaseId: 7, kind: "displacement" }),
+      ).toBeRejectedWithError(/no displacement results/);
+      expect((await session.getResult({ loadCaseId: 7, kind: "memberDiagram" })).kind).toBe(
+        "memberDiagram",
+      );
     });
 
     it("returns a self-contained force-only field through the advertised session API", async () => {
@@ -384,16 +397,44 @@ describe("SofistikSession", () => {
           mz: Float32Array.of(0, 0),
         },
       });
-      expect(await session.getResult({ loadCaseId: 302, kind: "beamForces" })).toEqual({
-        kind: "beamForces",
+      expect(await session.getResult({ loadCaseId: 302, kind: "memberDiagram" })).toEqual({
+        kind: "memberDiagram",
         loadCaseId: 302,
-        components: ["N", "Vy", "Vz", "Mt", "My", "Mz"],
+        components: jasmine.any(Array),
         elements: [
           {
             id: "beam-12",
             stations: [
-              { x: 0, values: [-5000, 0, 1000, 0, -2000, 0] },
-              { x: 2, values: [-5000, 0, 1000, 0, 0, 0] },
+              {
+                x: 0,
+                values: [
+                  -5000,
+                  0,
+                  1000,
+                  0,
+                  -2000,
+                  0,
+                  ...Array(15).fill(null),
+                  jasmine.anything(),
+                  jasmine.anything(),
+                  jasmine.anything(),
+                ],
+              },
+              {
+                x: 2,
+                values: [
+                  -5000,
+                  0,
+                  1000,
+                  0,
+                  0,
+                  0,
+                  ...Array(15).fill(null),
+                  jasmine.anything(),
+                  jasmine.anything(),
+                  jasmine.anything(),
+                ],
+              },
             ],
           },
         ],
@@ -407,9 +448,9 @@ describe("SofistikSession", () => {
       beamReads.set(1, beamRead);
       nodeReads.set(1, nodeRead);
       const displacement = session.getResult({ loadCaseId: 1 });
-      const forces = session.getResult({ loadCaseId: 1, kind: "beamForces" });
+      const forces = session.getResult({ loadCaseId: 1, kind: "memberDiagram" });
       expect(forces).not.toBe(displacement);
-      expect(session.getResult({ loadCaseId: 1, kind: "beamForces" })).toBe(forces);
+      expect(session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).toBe(forces);
       await Promise.all([beamRead.startedPromise, nodeRead.startedPromise]);
       beamRead.resolve({ count: 0, columns: {} });
       const latest = await forces;
@@ -418,7 +459,7 @@ describe("SofistikSession", () => {
       expect(session.lastResult).toBe(latest);
       expect(session.pendingResults.size).toBe(0);
       expect(countReads("nodeResults", 1)).toBe(1);
-      expect(await session.getResult({ loadCaseId: 1, kind: "beamForces" })).toBe(latest);
+      expect(await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).toBe(latest);
     });
 
     it("distinguishes numeric and string case identifiers while pending and completed", async () => {
@@ -426,8 +467,8 @@ describe("SofistikSession", () => {
       const stringRead = deferredRead();
       beamReads.set(1, numericRead);
       beamReads.set("1", stringRead);
-      const numeric = session.getResult({ loadCaseId: 1, kind: "beamForces" });
-      const string = session.getResult({ loadCaseId: "1", kind: "beamForces" });
+      const numeric = session.getResult({ loadCaseId: 1, kind: "memberDiagram" });
+      const string = session.getResult({ loadCaseId: "1", kind: "memberDiagram" });
       expect(numeric).not.toBe(string);
       await Promise.all([numericRead.startedPromise, stringRead.startedPromise]);
       numericRead.resolve({ count: 0, columns: {} });
@@ -435,8 +476,10 @@ describe("SofistikSession", () => {
       expect((await numeric).loadCaseId).toBe(1);
       const latest = await string;
       expect(latest.loadCaseId).toBe("1");
-      expect(await session.getResult({ loadCaseId: "1", kind: "beamForces" })).toBe(latest);
-      expect((await session.getResult({ loadCaseId: 1, kind: "beamForces" })).loadCaseId).toBe(1);
+      expect(await session.getResult({ loadCaseId: "1", kind: "memberDiagram" })).toBe(latest);
+      expect((await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).loadCaseId).toBe(
+        1,
+      );
       expect(countReads("beamForces", 1)).toBe(2);
       expect(countReads("beamForces", "1")).toBe(1);
     });
@@ -444,20 +487,20 @@ describe("SofistikSession", () => {
     it("retries a failed force read and does not cache a force read after disposal", async () => {
       const failed = deferredRead();
       beamReads.set(1, failed);
-      const first = session.getResult({ loadCaseId: 1, kind: "beamForces" });
+      const first = session.getResult({ loadCaseId: 1, kind: "memberDiagram" });
       const rejection = expectAsync(first).toBeRejectedWithError("CDB read failed");
       await failed.startedPromise;
       failed.reject(new Error("CDB read failed"));
       await rejection;
       expect(session.pendingResults.size).toBe(0);
       beamReads.delete(1);
-      expect((await session.getResult({ loadCaseId: 1, kind: "beamForces" })).kind).toBe(
-        "beamForces",
+      expect((await session.getResult({ loadCaseId: 1, kind: "memberDiagram" })).kind).toBe(
+        "memberDiagram",
       );
       expect(countReads("beamForces", 1)).toBe(2);
       const pending = deferredRead();
       beamReads.set(2, pending);
-      const second = session.getResult({ loadCaseId: 2, kind: "beamForces" });
+      const second = session.getResult({ loadCaseId: 2, kind: "memberDiagram" });
       const closed = expectAsync(second).toBeRejectedWithError(/session is closed/);
       await pending.startedPromise;
       await session.dispose();
@@ -609,6 +652,10 @@ describe("SofistikSession", () => {
         ["loadCase"],
         ["nodeResults"],
         ["beamForces"],
+        ["beamForcesWithoutPlate"],
+        ["beamStresses"],
+        ["beamHingeReactions"],
+        ["beamStiffness"],
       ]);
     } finally {
       await session.dispose();

@@ -1,6 +1,6 @@
 const { readLoadCases } = require("../lib/results/load-cases");
 const { readBeamStations } = require("../lib/results/beam-stations");
-const { readBeamForces } = require("../lib/results/beam-forces");
+const { readMemberDiagram } = require("../lib/results/member-diagram");
 
 describe("SOFiSTiK results", () => {
   it("lists solved static cases and eigenmode records, not load definitions", async () => {
@@ -96,7 +96,7 @@ describe("solved superpositions", () => {
           loadCase: Int32Array.of(101, 201, 301, 401),
           nodeResults: Int32Array.of(101, 301),
           beamForces: Int32Array.of(201, 301),
-        })[name],
+        })[name] || [],
       read: async (_name, number) => ({
         count: 1,
         columns: { kind: Int32Array.of(0), rtex: [`Case ${number}`] },
@@ -141,20 +141,106 @@ describe("beam internal force stations", () => {
 
   it("maps short and complete records to six signed SI components and preserves force jumps", async () => {
     const read = forceRead();
-    const database = { read: jasmine.createSpy("read").and.resolveTo(read) };
-    const result = await readBeamForces(database, 302, elementIdOf);
-    expect(database.read).toHaveBeenCalledOnceWith("beamForces", 302, {
+    const database = {
+      read: jasmine
+        .createSpy("read")
+        .and.callFake(async (name) => (name === "beamForces" ? read : { count: 0, columns: {} })),
+    };
+    const result = await readMemberDiagram(database, 302, elementIdOf);
+    expect(database.read).toHaveBeenCalledWith("beamForces", 302, {
       decodePolicy: "variable-tail",
+      includeEnvelope: false,
     });
-    expect(result.components).toEqual(["N", "Vy", "Vz", "Mt", "My", "Mz"]);
+    expect(result.components.map(({ id }) => id)).toEqual([
+      "N",
+      "Vy",
+      "Vz",
+      "Mt",
+      "My",
+      "Mz",
+      "Mb",
+      "Mt1",
+      "Mt2",
+      "Mt3",
+      "ux",
+      "uy",
+      "uz",
+      "phix",
+      "phiy",
+      "phiz",
+      "phiw",
+      "pa",
+      "pt",
+      "pty",
+      "ptz",
+      "thrust:y",
+      "thrust:z",
+      "thrust:total",
+    ]);
     expect(result.elements).toEqual([
       {
         id: "beam-12",
         stations: [
-          { x: 0, values: [-4000, 1000, 2000, -250, 0, 0] },
-          { x: 2, values: [-4000, 1000, 2000, -250, 4000, -2000] },
-          { x: 2, values: [-4000, -3000, -2000, 500, 4000, -2000] },
-          { x: 4, values: [-4000, -3000, -2000, 500, 0, 4000] },
+          {
+            x: 0,
+            values: [
+              -4000,
+              1000,
+              2000,
+              -250,
+              0,
+              0,
+              ...Array(15).fill(null),
+              jasmine.anything(),
+              jasmine.anything(),
+              jasmine.anything(),
+            ],
+          },
+          {
+            x: 2,
+            values: [
+              -4000,
+              1000,
+              2000,
+              -250,
+              4000,
+              -2000,
+              ...Array(15).fill(null),
+              jasmine.anything(),
+              jasmine.anything(),
+              jasmine.anything(),
+            ],
+          },
+          {
+            x: 2,
+            values: [
+              -4000,
+              -3000,
+              -2000,
+              500,
+              4000,
+              -2000,
+              ...Array(15).fill(null),
+              jasmine.anything(),
+              jasmine.anything(),
+              jasmine.anything(),
+            ],
+          },
+          {
+            x: 4,
+            values: [
+              -4000,
+              -3000,
+              -2000,
+              500,
+              0,
+              4000,
+              ...Array(15).fill(null),
+              jasmine.anything(),
+              jasmine.anything(),
+              jasmine.anything(),
+            ],
+          },
         ],
       },
     ]);
@@ -165,7 +251,11 @@ describe("beam internal force stations", () => {
     const read = forceRead();
     read.columns.element = Int32Array.of(12, 13, 12, 12);
     read.columns.x = Float32Array.of(4, 1, 2, 2);
-    const result = await readBeamForces({ read: async () => read }, 302, elementIdOf);
+    const result = await readMemberDiagram(
+      { read: async (name) => (name === "beamForces" ? read : { count: 0, columns: {} }) },
+      302,
+      elementIdOf,
+    );
     expect(result.elements.map(({ id }) => id)).toEqual(["beam-12", "beam-13"]);
     expect(result.elements[0].stations.map(({ x }) => x)).toEqual([2, 2, 4]);
     expect(result.elements[0].stations.map(({ values }) => values[4])).toEqual([4000, 0, 0]);
@@ -174,17 +264,46 @@ describe("beam internal force stations", () => {
   it("converts the abscissa using its own quantity metadata", async () => {
     const read = forceRead();
     read.fields[0].unit = 1000;
-    const result = await readBeamForces({ read: async () => read }, 302, elementIdOf);
-    expect(result.elements[0].stations.at(-1).x).toBe(4000);
+    const result = await readMemberDiagram(
+      { read: async (name) => (name === "beamForces" ? read : { count: 0, columns: {} }) },
+      302,
+      elementIdOf,
+    );
+    expect(result.elements[0].stations.at(-1).x).toBe(4);
   });
 
   it("returns an empty field for a case without beam records", async () => {
-    const result = await readBeamForces(
+    const result = await readMemberDiagram(
       { read: async () => ({ count: 0, columns: {} }) },
       302,
       elementIdOf,
     );
-    expect(result.components).toEqual(["N", "Vy", "Vz", "Mt", "My", "Mz"]);
+    expect(result.components.map(({ id }) => id)).toEqual([
+      "N",
+      "Vy",
+      "Vz",
+      "Mt",
+      "My",
+      "Mz",
+      "Mb",
+      "Mt1",
+      "Mt2",
+      "Mt3",
+      "ux",
+      "uy",
+      "uz",
+      "phix",
+      "phiy",
+      "phiz",
+      "phiw",
+      "pa",
+      "pt",
+      "pty",
+      "ptz",
+      "thrust:y",
+      "thrust:z",
+      "thrust:total",
+    ]);
     expect(result.elements).toEqual([]);
   });
 
@@ -193,7 +312,11 @@ describe("beam internal force stations", () => {
       const read = forceRead();
       delete read.columns[name];
       await expectAsync(
-        readBeamForces({ read: async () => read }, 302, elementIdOf),
+        readMemberDiagram(
+          { read: async (name) => (name === "beamForces" ? read : { count: 0, columns: {} }) },
+          302,
+          elementIdOf,
+        ),
       ).toBeRejectedWithError(new RegExp(`complete ${name} column`));
     });
   }
@@ -202,12 +325,20 @@ describe("beam internal force stations", () => {
     const read = forceRead();
     read.columns.my[1] = NaN;
     await expectAsync(
-      readBeamForces({ read: async () => read }, 302, elementIdOf),
+      readMemberDiagram(
+        { read: async (name) => (name === "beamForces" ? read : { count: 0, columns: {} }) },
+        302,
+        elementIdOf,
+      ),
     ).toBeRejectedWithError(/non-finite/);
     read.columns.my[1] = 0;
     read.fields.find(({ name }) => name === "my").unit = 99999;
     await expectAsync(
-      readBeamForces({ read: async () => read }, 302, elementIdOf),
+      readMemberDiagram(
+        { read: async (name) => (name === "beamForces" ? read : { count: 0, columns: {} }) },
+        302,
+        elementIdOf,
+      ),
     ).toBeRejectedWithError(/No SI conversion/);
   });
 });

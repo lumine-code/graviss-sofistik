@@ -19,6 +19,7 @@
   "main": "./lib/main",
   "files": [
     "lib",
+    "docs",
     "spec"
   ],
   "engines": {
@@ -47,7 +48,7 @@
   },
   "dependencies": {
     "@lumine-code/sofistik-context": "github:lumine-code/sofistik-context#b3c11f0be26f32810a284b86bd066feddea3d207",
-    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#cb9356f810ed3282887b0dd55904b13c0d2fe0e7"
+    "@lumine-code/sofistik-reader": "github:lumine-code/sofistik-reader#4b5f2d02f3edb37f569edc5680396c2dd0968a9e"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -59,7 +60,7 @@
     "prettier": "^3.9.9"
   },
   "allowScripts": {
-    "github:lumine-code/sofistik-reader#cb9356f810ed3282887b0dd55904b13c0d2fe0e7": true
+    "github:lumine-code/sofistik-reader#4b5f2d02f3edb37f569edc5680396c2dd0968a9e": true
   },
   "specPackages": [
     "graviss"

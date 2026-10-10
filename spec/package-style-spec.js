@@ -71,7 +71,7 @@ describe("graviss-sofistik package conventions", () => {
   it("ships only what a data package delivers", () => {
     // Sample models are development material and live in the untracked .dev
     // directory, so nothing here may reference or publish them.
-    expect(manifest.files).toEqual(["lib", "spec"]);
+    expect(manifest.files).toEqual(["lib", "docs", "spec"]);
     expect(fs.existsSync(path.join(root, "examples"))).toBe(false);
     expect(fs.readFileSync(path.join(root, ".gitignore"), "utf8")).toContain(".dev/");
   });
