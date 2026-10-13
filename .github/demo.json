@@ -1,0 +1,17 @@
+{
+  "title": "graviss-sofistik",
+  "description": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
+  "recordedOn": "2026-10-13",
+  "sourceRevision": "e4cefafa785c3f2c576725598e7f271987ff18b4",
+  "mode": "normal",
+  "fontSettings": "default",
+  "themeSourceRevision": "6564a9e21899b5541e9c8f8006f9be6d6d72e6ad",
+  "images": [
+    {
+      "file": "demo.png",
+      "label": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
+      "width": 1200,
+      "height": 820
+    }
+  ]
+}

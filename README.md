@@ -16,6 +16,8 @@ Read finite element models from SOFiSTiK CDB databases.
 - **Source discovery**: resolves an explicit relative source or a same-basename `.cdb` database beside a `.grv` document.
 - **Data only, through an isolated reader**: supplies model data to Graviss, which owns the canvas and every command, and delegates each session to `@lumine-code/sofistik-reader`, which owns its subprocess and reads every record layout from the installation that owns the interface.
 
+![Read real SOFiSTiK CDB geometry in the Graviss viewport.](.github/demo.png)
+
 ## Installation
 
 To install `graviss-sofistik` search for it in the Install pane of the Lumine settings, or run the command `lumine --install lumine-code/graviss-sofistik`.
