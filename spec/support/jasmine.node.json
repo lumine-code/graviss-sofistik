@@ -6,6 +6,7 @@
     "member-diagram-spec.js",
     "active-elements-spec.js",
     "session-spec.js",
+    "session-runtime-spec.js",
     "package-style-spec.js"
   ],
   "helpers": [],
