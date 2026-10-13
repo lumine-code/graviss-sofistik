@@ -125,4 +125,30 @@ describe("Native SOFiSTiK session runtime", () => {
       expect(read).not.toHaveBeenCalled();
     });
   }
+
+  for (const method of ["getDatabase", "getLoadCases", "readResultField"]) {
+    it(`guards ${method} when closing between runtime resolution and its caller resuming`, async () => {
+      const database = { dispose() {} };
+      const work = jasmine.createSpy("runtime work").and.returnValue(database);
+      const runtime = { CdbDatabase: work, readLoadCases: work, readMemberDiagram: work };
+      const session = new SofistikSession("model.cdb", {
+        environment: environment(),
+        ...(method === "getDatabase" ? {} : { database }),
+      });
+      session.described = true;
+      spyOn(runtimeLoader, "load").and.callFake(() => {
+        // getRuntime's own check runs before disposal; its caller resumes in
+        // the next microtask and must guard the operation itself as well.
+        Promise.resolve().then(() => queueMicrotask(() => session.dispose()));
+        return Promise.resolve(runtime);
+      });
+      const request =
+        method === "readResultField"
+          ? session.readResultField(database, 1, "memberDiagram")
+          : session[method]();
+      await expectAsync(request).toBeRejectedWithError(/closed/);
+      await session.dispose();
+      expect(work).not.toHaveBeenCalled();
+    });
+  }
 });
