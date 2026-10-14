@@ -1,17 +1,74 @@
 {
   "title": "graviss-sofistik",
   "description": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
-  "recordedOn": "2026-10-13",
-  "sourceRevision": "b3758883c44a5b9fc1a074b7b66a3e061648af2d",
+  "recordedOn": "2026-10-14",
+  "sourceRevision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
+  "themeSourceRevision": "7fbd047a87ecf1367c896b19ff270cdc28d319f7",
   "mode": "normal",
   "fontSettings": "default",
-  "themeSourceRevision": "6564a9e21899b5541e9c8f8006f9be6d6d72e6ad",
+  "scenario": "demo.js",
+  "recipeHash": "08385a92b300f5b2e95dbcc359c44da430d97c4b2c374efede273e7123b33ee8",
+  "environment": {
+    "platform": "win32",
+    "arch": "x64",
+    "electron": "44.7.0",
+    "chrome": "152.0.7977.130",
+    "devicePixelRatio": 1,
+    "locale": "en-GB",
+    "fontFamily": "Fira Code, Menlo, DejaVu Sans Mono, Consolas, monospace",
+    "fontSize": 14,
+    "themes": ["one-day-syntax", "one-day-ui"]
+  },
+  "viewport": { "width": 1200, "height": 820 },
+  "cornerRadius": 10,
+  "sources": {
+    "editor": {
+      "revision": "d0b1751fffac65f10a405545e5f01cf7ad05c0bb",
+      "dirty": true,
+      "workingTreeHash": "9e1925be2839d18f5d0ab44707b99041e25a1ae20ebbfbfd58e9a92724c61a7a"
+    },
+    "package": {
+      "revision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "graviss-sofistik": {
+      "revision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "graviss": {
+      "revision": "bb4fb91f1c9739a7a06549476286f5c5f9d7b559",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "one-theme": {
+      "revision": "7fbd047a87ecf1367c896b19ff270cdc28d319f7",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    }
+  },
+  "fixtures": [
+    {
+      "file": "sofistik-model/model.grv",
+      "sha256": "470051029b173361ef21313741627c2852b87073f10baca7e6c6c0a4b0a6e9ad"
+    },
+    {
+      "file": "sofistik-model/notes.txt",
+      "sha256": "5ea8363277acbccddd892d61fcbf6ea9f6af64a2d7762058b14a80712996b180"
+    },
+    {
+      "file": "sofistik-model/sofistik.def",
+      "sha256": "cfc3db5e2f66d1fd5bd4971abc0f2c9b5d98fd63eb22c69c8851f4fab24f00cd"
+    }
+  ],
   "images": [
     {
       "file": "demo.png",
       "label": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
       "width": 1200,
-      "height": 820
+      "height": 820,
+      "sha256": "4eb3ab9850b1c634d4cc7b98d784a0c91c81f0459fd0554772d1bbc2b92a82e8"
     }
   ]
 }
