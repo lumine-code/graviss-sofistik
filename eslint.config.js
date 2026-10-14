@@ -7,7 +7,7 @@ const runtimeModules = ["lumine"];
 
 module.exports = [
   // `.dev` holds local probes against an installed SOFiSTiK, never shipped.
-  { ignores: [".dev/**", "build/**", "node_modules/**"] },
+  { ignores: [".dev/**", "build/**", "node_modules/**", "demo/**"] },
   js.configs.recommended,
   n.configs["flat/recommended-script"],
   {

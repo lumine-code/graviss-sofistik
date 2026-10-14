@@ -1,0 +1,45 @@
+{
+  "format": "graviss-view",
+  "version": 1,
+  "activeGraphicId": "overview",
+  "graphics": [
+    {
+      "id": "overview",
+      "title": "3D overview",
+      "camera": {
+        "projection": "perspective",
+        "position": [
+          -12.0716644217,
+          8.76317280523,
+          -6.81901153178
+        ],
+        "target": [
+          3.33522535727,
+          2.84460342841,
+          3.90210801353
+        ],
+        "up": [
+          0,
+          0,
+          -1
+        ],
+        "fieldOfView": 42
+      },
+      "appearance": "auto",
+      "sectionRendering": true,
+      "visibility": {
+        "members": true,
+        "shells": true,
+        "nodes": false,
+        "supports": true,
+        "mesh": true,
+        "grid": false,
+        "axes": true,
+        "localAxes": false
+      },
+      "symbolSize": 0.015
+    }
+  ],
+  "source": "model.cdb",
+  "title": "SOFiSTiK structural model"
+}
