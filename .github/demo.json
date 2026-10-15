@@ -2,7 +2,7 @@
   "title": "graviss-sofistik",
   "description": "Inspect a truss model imported from SOFiSTiK CDB with its element filters.",
   "recordedOn": "2026-10-15",
-  "sourceRevision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
+  "sourceRevision": "9b3b026e8ba02ec9a6746642f5f029591f8507d9",
   "themeSourceRevision": "828c35ac1816466699effa6f7cf7eedccc930ff9",
   "mode": "normal",
   "fontSettings": "default",
@@ -24,24 +24,24 @@
   "privacy": { "version": 1, "location": "neutral", "textChecked": true },
   "sources": {
     "editor": {
-      "revision": "55fc1c9334cb5f5c5f2d3fa916bbb396ff635b70",
+      "revision": "b4049c66f6d557fe5c2af743a8b32e5a9cf1fde1",
       "dirty": false,
       "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "package": {
-      "revision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
-      "dirty": true,
-      "workingTreeHash": "a9d05d9a1110e5168860b3b8677c7a74395b712ba04166f3066f6533e6f449d6"
+      "revision": "9b3b026e8ba02ec9a6746642f5f029591f8507d9",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "graviss-sofistik": {
-      "revision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
-      "dirty": true,
-      "workingTreeHash": "a9d05d9a1110e5168860b3b8677c7a74395b712ba04166f3066f6533e6f449d6"
+      "revision": "9b3b026e8ba02ec9a6746642f5f029591f8507d9",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "graviss": {
-      "revision": "743efca8556879ae64338780f3a6bdac5d75718c",
-      "dirty": true,
-      "workingTreeHash": "ca1f6cb1cacff63b091a640e67689b5e05cca880574d465e488df275bbf48743"
+      "revision": "592ef6c66fb3098c5e54ed8a7072ee0d4c8d9e04",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "one-theme": {
       "revision": "828c35ac1816466699effa6f7cf7eedccc930ff9",
@@ -52,7 +52,7 @@
   "fixtures": [
     {
       "file": "sofistik-model/model.grv",
-      "sha256": "de4ac576d85eacb1dd0a2ca19e01412803506c25d92582fbc2bba2fe5d93391b"
+      "sha256": "42187b0b85f76ce2eca856d128f57c681ef72795902ff19ac8bc515ec8cefb5d"
     },
     {
       "file": "sofistik-model/notes.txt",
@@ -69,7 +69,7 @@
       "label": "Inspect a truss model imported from SOFiSTiK CDB with its element filters.",
       "width": 1400,
       "height": 900,
-      "sha256": "e5ae08ffe0c8850d1a42b802f740ada7b5285abe4029bf6292c992095a6be3c2"
+      "sha256": "91d082182588732128d400ee45ef57d1b9733cacbfe683414bb6db7c0f611370"
     }
   ]
 }
