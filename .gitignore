@@ -36,3 +36,7 @@ secret-store.json
 /state-store/
 .idea/workspace.xml
 *.creator.user
+
+# Local capture recipes and model inputs
+/demo.js
+/demo/
