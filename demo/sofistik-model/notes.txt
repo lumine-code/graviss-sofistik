@@ -1,1 +1,5 @@
-SOFiSTiK structural model
+Truss model demonstration
+
+Set LUMINE_DEMO_CDB to the reviewed real CDB model.
+SHA-256: 0c5e09cb24b0313a1dff55383b1ac296ca500ec166b75c679d618acceb2a1275
+The binary model is kept outside the repository.

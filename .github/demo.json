@@ -1,49 +1,50 @@
 {
   "title": "graviss-sofistik",
-  "description": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
-  "recordedOn": "2026-10-14",
-  "sourceRevision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
-  "themeSourceRevision": "7fbd047a87ecf1367c896b19ff270cdc28d319f7",
+  "description": "Inspect a truss model imported from SOFiSTiK CDB with its element filters.",
+  "recordedOn": "2026-10-15",
+  "sourceRevision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
+  "themeSourceRevision": "828c35ac1816466699effa6f7cf7eedccc930ff9",
   "mode": "normal",
   "fontSettings": "default",
   "scenario": "demo.js",
-  "recipeHash": "08385a92b300f5b2e95dbcc359c44da430d97c4b2c374efede273e7123b33ee8",
+  "recipeHash": "bf0b147b827ff13385542c6a3d31522877158f27baa41c01e1d5dd01eb07b44e",
   "environment": {
     "platform": "win32",
     "arch": "x64",
-    "electron": "44.7.0",
-    "chrome": "152.0.7977.130",
+    "electron": "44.7.1",
+    "chrome": "152.0.7977.149",
     "devicePixelRatio": 1,
     "locale": "en-GB",
     "fontFamily": "Fira Code, Menlo, DejaVu Sans Mono, Consolas, monospace",
     "fontSize": 14,
     "themes": ["one-day-syntax", "one-day-ui"]
   },
-  "viewport": { "width": 1200, "height": 820 },
+  "viewport": { "width": 1400, "height": 900 },
   "cornerRadius": 10,
+  "privacy": { "version": 1, "location": "neutral", "textChecked": true },
   "sources": {
     "editor": {
-      "revision": "d0b1751fffac65f10a405545e5f01cf7ad05c0bb",
-      "dirty": true,
-      "workingTreeHash": "9e1925be2839d18f5d0ab44707b99041e25a1ae20ebbfbfd58e9a92724c61a7a"
+      "revision": "55fc1c9334cb5f5c5f2d3fa916bbb396ff635b70",
+      "dirty": false,
+      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     },
     "package": {
-      "revision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
-      "dirty": false,
-      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      "revision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
+      "dirty": true,
+      "workingTreeHash": "a9d05d9a1110e5168860b3b8677c7a74395b712ba04166f3066f6533e6f449d6"
     },
     "graviss-sofistik": {
-      "revision": "57c5da5d524858c74a43e1eb5ad1aeb29fe8a5aa",
-      "dirty": false,
-      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      "revision": "0ffa1a6a13039e963e7335dc4e3f444642607f59",
+      "dirty": true,
+      "workingTreeHash": "a9d05d9a1110e5168860b3b8677c7a74395b712ba04166f3066f6533e6f449d6"
     },
     "graviss": {
-      "revision": "bb4fb91f1c9739a7a06549476286f5c5f9d7b559",
-      "dirty": false,
-      "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      "revision": "743efca8556879ae64338780f3a6bdac5d75718c",
+      "dirty": true,
+      "workingTreeHash": "ca1f6cb1cacff63b091a640e67689b5e05cca880574d465e488df275bbf48743"
     },
     "one-theme": {
-      "revision": "7fbd047a87ecf1367c896b19ff270cdc28d319f7",
+      "revision": "828c35ac1816466699effa6f7cf7eedccc930ff9",
       "dirty": false,
       "workingTreeHash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
     }
@@ -51,11 +52,11 @@
   "fixtures": [
     {
       "file": "sofistik-model/model.grv",
-      "sha256": "470051029b173361ef21313741627c2852b87073f10baca7e6c6c0a4b0a6e9ad"
+      "sha256": "de4ac576d85eacb1dd0a2ca19e01412803506c25d92582fbc2bba2fe5d93391b"
     },
     {
       "file": "sofistik-model/notes.txt",
-      "sha256": "5ea8363277acbccddd892d61fcbf6ea9f6af64a2d7762058b14a80712996b180"
+      "sha256": "920c31ec3c74bd9c7ce2d2fd94f99250d6fdaf601f743b5b74d4d247cd06e60f"
     },
     {
       "file": "sofistik-model/sofistik.def",
@@ -65,10 +66,10 @@
   "images": [
     {
       "file": "demo.png",
-      "label": "Read real SOFiSTiK CDB geometry in the Graviss viewport.",
-      "width": 1200,
-      "height": 820,
-      "sha256": "4eb3ab9850b1c634d4cc7b98d784a0c91c81f0459fd0554772d1bbc2b92a82e8"
+      "label": "Inspect a truss model imported from SOFiSTiK CDB with its element filters.",
+      "width": 1400,
+      "height": 900,
+      "sha256": "e5ae08ffe0c8850d1a42b802f740ada7b5285abe4029bf6292c992095a6be3c2"
     }
   ]
 }
