@@ -307,6 +307,183 @@ describe("section shapes", () => {
     ]);
   });
 
+  it("keeps a generated opening when a different material has a drawn opening there", () => {
+    const shape = polygonShape(
+      read(16, {
+        idp: Int32Array.from([
+          256, 256, 256, 256, 512, 512, 512, 512, 769, 769, 769, 769, 25601, 25601, 25601, 25601,
+        ]),
+        mno: Int32Array.from([1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2]),
+        y: Float32Array.from([0, 8, 8, 0, 1, 7, 7, 1, 2, 6, 6, 2, 3, 5, 5, 3]),
+        z: Float32Array.from([0, 0, 8, 8, 1, 1, 7, 7, 2, 2, 6, 6, 3, 3, 5, 5]),
+      }),
+    );
+    expect(shape.parts.length).toBe(2);
+    expect(shape.parts[0].holes.length).toBe(1);
+    expect(shape.parts[1].holes).toEqual([
+      [
+        [3, 3],
+        [5, 3],
+        [5, 5],
+        [3, 5],
+      ],
+    ]);
+  });
+
+  describe("solid circular boundaries", () => {
+    function circles(rows) {
+      return read(rows.length, {
+        id: Int32Array.from(rows, () => 102),
+        mno: Int32Array.from(rows, (row) => row[0]),
+        itp: Int32Array.from(rows, (row) => row[1]),
+        y: Float32Array.from(rows, (row) => row[2]),
+        z: Float32Array.from(rows, (row) => row[3]),
+        r: Float32Array.from(rows, (row) => row[4]),
+        ri: Float32Array.from(rows, (row) => row[5] || 0),
+        uc: Float32Array.from(rows, () => 0),
+      });
+    }
+
+    function span(points, axis) {
+      const values = points.map((point) => point[axis]);
+      return Math.max(...values) - Math.min(...values);
+    }
+
+    function center(points, axis) {
+      return points.reduce((sum, point) => sum + point[axis], 0) / points.length;
+    }
+
+    function area(points) {
+      return (
+        Math.abs(
+          points.reduce((sum, [y, z], index) => {
+            const [nextY, nextZ] = points[(index + 1) % points.length];
+            return sum + y * nextZ - nextY * z;
+          }, 0),
+        ) / 2
+      );
+    }
+
+    it("reads section 51's circular PROF boundaries instead of inferring a rectangle", () => {
+      // AQUA stores the CHSC 193.7 x 8 profile as an outer circle, a signed
+      // inner boundary and a zero-material copy of the input void.
+      const section = readSection(51, {
+        ...read(1, {
+          a: Float32Array.of(0.004667150788009167),
+          iy: Float32Array.of(2.0155375750618987e-5),
+          iz: Float32Array.of(2.0155375750618987e-5),
+          mno: Int32Array.of(1),
+        }),
+        circle: circles([
+          [1, 1, 0, 0, 0.09685000032],
+          [1, -1, 0, 0, -0.088849999],
+          [0, 1, 0, 0, 0.088849999],
+        ]),
+      });
+      const shape = section.shape;
+      expect(shape.kind).toBe("polygon");
+      expect(shape.inferred).toBeUndefined();
+      expect(shape.parts).toBeUndefined();
+      expect(shape.points.length).toBe(128);
+      expect(shape.holes.length).toBe(1);
+      expect(shape.holes[0].length).toBe(128);
+      expect(span(shape.points, 0)).toBeCloseTo(0.1937, 7);
+      expect(span(shape.points, 1)).toBeCloseTo(0.1937, 7);
+      expect((span(shape.points, 0) - span(shape.holes[0], 0)) / 2).toBeCloseTo(0.008, 7);
+      const materialArea = area(shape.points) - area(shape.holes[0]);
+      expect(Math.abs(materialArea / section.area - 1)).toBeLessThan(0.0005);
+    });
+
+    it("preserves an offset ring and its directly stored inner radius", () => {
+      const shape = polygonShape(null, circles([[1, 1, 1.5, -0.75, 0.4, 0.3]]));
+      expect(shape.kind).toBe("polygon");
+      expect(shape.holes.length).toBe(1);
+      for (const points of [shape.points, shape.holes[0]]) {
+        expect(center(points, 0)).toBeCloseTo(1.5, 7);
+        expect(center(points, 1)).toBeCloseTo(-0.75, 7);
+      }
+      expect(span(shape.points, 0)).toBeCloseTo(0.8, 6);
+      expect(span(shape.holes[0], 0)).toBeCloseTo(0.6, 6);
+      const materialArea = area(shape.points) - area(shape.holes[0]);
+      expect(Math.abs(materialArea / (Math.PI * (0.4 ** 2 - 0.3 ** 2)) - 1)).toBeLessThan(0.0005);
+    });
+
+    it("keeps polygon and circular components in the same solid section", () => {
+      const shape = polygonShape(
+        read(4, {
+          idp: Int32Array.from([256, 256, 256, 256]),
+          mno: Int32Array.from([1, 1, 1, 1]),
+          y: Float32Array.from([-1, 1, 1, -1]),
+          z: Float32Array.from([-1, -1, 1, 1]),
+        }),
+        circles([[1, 1, 3, 0, 0.5, 0.25]]),
+      );
+      expect(shape.parts.length).toBe(2);
+      const polygon = shape.parts.find((part) => part.points.length === 4);
+      expect(polygon.points).toEqual([
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ]);
+      const ring = shape.parts.find((part) => part !== polygon);
+      expect(center(ring.points, 0)).toBeCloseTo(3, 7);
+      expect(span(ring.points, 0)).toBeCloseTo(1, 7);
+      expect(ring.holes.length).toBe(1);
+      expect(span(ring.holes[0], 0)).toBeCloseTo(0.5, 7);
+    });
+
+    it("assigns each circular opening to its material rather than an overlapping component", () => {
+      const shape = polygonShape(
+        read(4, {
+          idp: Int32Array.from([256, 256, 256, 256]),
+          mno: Int32Array.from([2, 2, 2, 2]),
+          y: Float32Array.from([-2, 2, 2, -2]),
+          z: Float32Array.from([-1, -1, 1, 1]),
+        }),
+        circles([
+          [1, 1, -0.75, 0, 0.5],
+          [3, 1, -0.75, 0, 0.3],
+          [1, -1, -0.75, 0, -0.2],
+          [1, 1, 0.75, 0, 0.5],
+          [1, -1, 0.75, 0, -0.2],
+        ]),
+      );
+      expect(shape.parts.length).toBe(4);
+      const tubes = shape.parts.filter((part) => Math.abs(span(part.points, 0) - 1) < 1e-6);
+      expect(tubes.length).toBe(2);
+      for (const tube of tubes) {
+        expect(tube.holes.length).toBe(1);
+        expect(center(tube.holes[0], 0)).toBeCloseTo(center(tube.points, 0), 7);
+        expect(span(tube.holes[0], 0)).toBeCloseTo(0.4, 6);
+      }
+      // The smaller disk covers an opening geometrically but is another
+      // material. Neither it nor the surrounding slab owns the tube's void.
+      for (const part of shape.parts.filter((part) => !tubes.includes(part))) {
+        expect(part.holes || []).toEqual([]);
+      }
+    });
+
+    it("skips circular records without finite centers or nonzero finite radii", () => {
+      const shape = polygonShape(
+        null,
+        circles([
+          [1, 1, Number.NaN, 0, 0.5],
+          [1, 1, 0, Infinity, 0.5],
+          [1, 1, 0, 0, Number.NaN],
+          [1, 1, 0, 0, Infinity],
+          [1, 1, 0, 0, 0],
+          [1, 1, 2, 3, 0.5],
+        ]),
+      );
+      expect(shape.parts).toBeUndefined();
+      expect(shape.points.length).toBe(128);
+      expect(shape.points.every((point) => point.every(Number.isFinite))).toBe(true);
+      expect(center(shape.points, 0)).toBeCloseTo(2, 7);
+      expect(center(shape.points, 1)).toBeCloseTo(3, 7);
+    });
+  });
+
   it("reads a thin-walled section as the plates it is welded from", () => {
     // Section 71 of the field model: a welded plate girder. The web stops at
     // the inner face of each flange and both flanges are split at the web, so

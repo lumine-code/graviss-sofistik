@@ -7,7 +7,7 @@ Read finite element models from SOFiSTiK CDB databases.
 ## Features
 
 - **Database geometry**: reads nodes, beams, trusses, cables, shells, springs and the way they act, couplings, restraints, exact section contours, per-corner thicknesses, and element-local axes from `.cdb` databases.
-- **Section detail**: reads the plates a welded or rolled section is built from, so a plate girder is drawn as the girder it is rather than as the rectangle of equivalent stiffness, and the plates and polygons a NEFF rule marked, so the part of a section that is there and does not carry is drawn as such.
+- **Section detail**: preserves solid and thin-walled PROF contours, circular openings, placement and rotation, including profiles combined with polygons or plates, and marks the material excluded by NEFF rules.
 - **Axial member orientation**: gives a truss or a cable the local frame a beam of the same axis would have stored, since the record stores none, so an asymmetric section stands the way up the model means it to.
 - **Analysis results**: provides member force, torsion, warping, deformation, bedding, stiffness, stress, strain, thrust-line and hinge diagrams with source-defined quantities and units, preserving concentrated-load jumps, material identities and missing data.
 - **Model divisions**: registers groups, secondary groups and structural lines as filter types the viewer can narrow a model by, with the numbers SOFiMSHC shows - group membership is the element number over the divisor the system record states, and a secondary group is the calculated element list stored under its four-character name. Quick filters use `G` for groups, `SG` for secondary groups and `L` for structural lines; `GB11` narrows group 11 to beams, and `SG:DECK` names a secondary group.
