@@ -57,7 +57,7 @@
     "eslint-plugin-n": "^18.5.0",
     "globals": "^17.14.0",
     "jasmine": "^7.0.0",
-    "prettier": "^3.10.0"
+    "prettier": "^3.10.1"
   },
   "allowScripts": {
     "github:lumine-code/sofistik-reader#09e28275321658ab8703f7014a9e81d89e6d51e7": true
